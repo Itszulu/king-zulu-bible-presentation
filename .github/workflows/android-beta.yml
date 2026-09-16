@@ -26,6 +26,13 @@ jobs:
           packages: 'platform-tools'
       - name: Install required Android SDK packages
         run: sdkmanager "platforms;android-36" "build-tools;35.0.0"
+      - name: Bundle complete public-domain KJV Bible
+        run: |
+          mkdir -p app/src/main/assets/bibles
+          curl --fail --location --retry 3 \
+            https://raw.githubusercontent.com/midvash/bible-data/main/versions/en/kjv/kjv.json \
+            -o app/src/main/assets/bibles/kjv.json
+          test -s app/src/main/assets/bibles/kjv.json
       - name: Set up Gradle 8.13
         uses: gradle/actions/setup-gradle@v4
         with:
