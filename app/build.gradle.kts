@@ -9,14 +9,22 @@ android {
     compileSdk = 36
 
     defaultConfig {
+        // Keep this ID permanently stable so new APKs update the installed King Zulu app.
         applicationId = "com.kingzulu.biblepresentation"
         minSdk = 26
         targetSdk = 36
-        versionCode = 1
-        versionName = "1.0.0"
+        versionCode = 2
+        versionName = "1.0.1"
+
+        // Supply with -PYOUVERSION_APP_KEY=... locally/CI. Never commit the credential.
+        val yvKey = providers.gradleProperty("YOUVERSION_APP_KEY").orElse("")
+        buildConfigField("String", "YOUVERSION_APP_KEY", "\"${yvKey.get()}\"")
     }
 
-    buildFeatures { compose = true }
+    buildFeatures {
+        compose = true
+        buildConfig = true
+    }
 
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
@@ -25,8 +33,6 @@ android {
 }
 
 dependencies {
-    // Keep Beta 1 on the stable Android 36 / AGP 8.13 toolchain.
-    // Newer 2026.08 Compose artifacts require API 37 and AGP 9.1.
     val composeBom = platform("androidx.compose:compose-bom:2025.08.00")
     implementation(composeBom)
     implementation("androidx.activity:activity-compose:1.10.1")
