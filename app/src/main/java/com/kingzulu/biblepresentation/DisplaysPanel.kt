@@ -23,9 +23,11 @@ private val DisplayMuted=Color(0xFFAAAAB2)
 private val DisplayGreen=Color(0xFF66D19E)
 
 @Composable
-fun DisplaysPanel() {
+fun DisplaysPanel(sharedWiredBridge: WiredDisplayBridge? = null) {
     val context=LocalContext.current; val activity=context as? Activity
-    val discovery=remember{KingZuluDisplayDiscovery(context)}; val castBridge=remember{GoogleCastBridge(context)}; val wiredBridge=remember{WiredDisplayBridge(context)}
+    val discovery=remember{KingZuluDisplayDiscovery(context)}; val castBridge=remember{GoogleCastBridge(context)}
+    val localWiredBridge=remember(sharedWiredBridge){if(sharedWiredBridge==null) WiredDisplayBridge(context) else null}
+    val wiredBridge=sharedWiredBridge ?: localWiredBridge!!
     val devices=remember{mutableStateListOf<DiscoveredDisplay>()}; var scanning by remember{mutableStateOf(false)}; var selected by remember{mutableStateOf<DiscoveredDisplay?>(null)}
     var castDevice by remember{mutableStateOf(castBridge.currentDeviceName())}; var wired by remember{mutableStateOf(wiredBridge.available())}; var wiredActive by remember{mutableStateOf<Int?>(null)}
 
@@ -43,7 +45,7 @@ fun DisplaysPanel() {
             }
         }
     }
-    DisposableEffect(Unit){onDispose{discovery.stop();wiredBridge.dismiss()}}
+    DisposableEffect(Unit){onDispose{discovery.stop();if(sharedWiredBridge==null)wiredBridge.dismiss()}}
 
     Column(verticalArrangement=Arrangement.spacedBy(14.dp)){
         Text("Displays",fontSize=32.sp,fontWeight=FontWeight.Black)
