@@ -10,7 +10,6 @@ class CastOptionsProvider : OptionsProvider {
     override fun getCastOptions(context: Context): CastOptions =
         CastOptions.Builder()
             .setReceiverApplicationId(CastMediaControlIntent.DEFAULT_MEDIA_RECEIVER_APPLICATION_ID)
-            .setShowSystemOutputSwitcherOnCastIconClick(true)
             .build()
 
     override fun getAdditionalSessionProviders(context: Context): List<SessionProvider>? = null
