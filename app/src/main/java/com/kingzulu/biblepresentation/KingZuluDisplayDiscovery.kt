@@ -1,54 +1,84 @@
 package com.kingzulu.biblepresentation
 
 import android.content.Context
-import android.net.nsd.NsdManager
-import android.net.nsd.NsdServiceInfo
+import android.net.wifi.WifiManager
+import kotlinx.coroutines.*
+import java.net.DatagramPacket
+import java.net.DatagramSocket
+import java.net.InetAddress
 
 data class DiscoveredDisplay(
     val name: String,
     val host: String,
     val port: Int,
-    val protocol: String = "King Zulu"
+    val protocol: String = "Local Wi-Fi"
 )
 
-/**
- * Discovers compatible presentation/display endpoints advertised on the local Wi-Fi.
- * This is intentionally lifecycle-safe: start/stop may be called repeatedly as the
- * user moves between pages without losing the rest of the presentation state.
- */
+/** Discovers VIDAA/Hisense and other SSDP/DIAL televisions on the local LAN. */
 class KingZuluDisplayDiscovery(context: Context) {
-    private val nsd = context.applicationContext.getSystemService(Context.NSD_SERVICE) as NsdManager
-    private var listener: NsdManager.DiscoveryListener? = null
-    private val seen = mutableSetOf<String>()
+    private val appContext = context.applicationContext
+    private var job: Job? = null
+    private var multicastLock: WifiManager.MulticastLock? = null
 
     fun start(onFound: (DiscoveredDisplay) -> Unit) {
         stop()
-        seen.clear()
-        val discovery = object : NsdManager.DiscoveryListener {
-            override fun onDiscoveryStarted(serviceType: String) = Unit
-            override fun onDiscoveryStopped(serviceType: String) = Unit
-            override fun onStartDiscoveryFailed(serviceType: String, errorCode: Int) { stop() }
-            override fun onStopDiscoveryFailed(serviceType: String, errorCode: Int) = Unit
-            override fun onServiceLost(serviceInfo: NsdServiceInfo) = Unit
-            override fun onServiceFound(serviceInfo: NsdServiceInfo) {
-                nsd.resolveService(serviceInfo, object : NsdManager.ResolveListener {
-                    override fun onResolveFailed(info: NsdServiceInfo, errorCode: Int) = Unit
-                    override fun onServiceResolved(info: NsdServiceInfo) {
-                        val host = info.host?.hostAddress ?: return
-                        val key = "$host:${info.port}"
-                        if (seen.add(key)) {
-                            onFound(DiscoveredDisplay(info.serviceName.ifBlank { "Display" }, host, info.port, "Local Wi-Fi"))
-                        }
+        val wifi = appContext.getSystemService(Context.WIFI_SERVICE) as WifiManager
+        multicastLock = wifi.createMulticastLock("kingzulu-tv-discovery").apply {
+            setReferenceCounted(false); acquire()
+        }
+        job = CoroutineScope(SupervisorJob() + Dispatchers.IO).launch {
+            val seen = mutableSetOf<String>()
+            val targets = listOf("urn:dial-multiscreen-org:service:dial:1", "ssdp:all")
+            DatagramSocket().use { socket ->
+                socket.soTimeout = 900
+                socket.broadcast = true
+                for (st in targets) {
+                    val request = ("M-SEARCH * HTTP/1.1\r\n" +
+                        "HOST: 239.255.255.250:1900\r\n" +
+                        "MAN: \"ssdp:discover\"\r\n" +
+                        "MX: 2\r\n" +
+                        "ST: $st\r\n\r\n").toByteArray()
+                    socket.send(DatagramPacket(request, request.size, InetAddress.getByName("239.255.255.250"), 1900))
+                    val until = System.currentTimeMillis() + 2600
+                    while (isActive && System.currentTimeMillis() < until) {
+                        try {
+                            val buf = ByteArray(8192)
+                            val packet = DatagramPacket(buf, buf.size)
+                            socket.receive(packet)
+                            val text = String(packet.data, 0, packet.length)
+                            val host = packet.address.hostAddress ?: continue
+                            val server = header(text, "SERVER")
+                            val usn = header(text, "USN")
+                            val location = header(text, "LOCATION")
+                            val evidence = "$server $usn $location $text".lowercase()
+                            val isVidaa = evidence.contains("hisense") || evidence.contains("vidaa") || evidence.contains("hisense-smart-tv")
+                            val isDialTv = evidence.contains("dial") || evidence.contains("tv")
+                            if (!isVidaa && !isDialTv) continue
+                            val key = host
+                            if (seen.add(key)) {
+                                val name = when {
+                                    isVidaa -> "VIDAA / Hisense TV"
+                                    server.isNotBlank() -> server.substringBefore('/').take(48)
+                                    else -> "Smart TV"
+                                }
+                                withContext(Dispatchers.Main) {
+                                    onFound(DiscoveredDisplay(name, host, if (isVidaa) 36669 else 1900, if (isVidaa) "VIDAA" else "SSDP / DIAL"))
+                                }
+                            }
+                        } catch (_: java.net.SocketTimeoutException) { }
                     }
-                })
+                }
             }
         }
-        listener = discovery
-        runCatching { nsd.discoverServices("_kingzulu._tcp.", NsdManager.PROTOCOL_DNS_SD, discovery) }
     }
 
+    private fun header(response: String, name: String): String =
+        response.lineSequence().firstOrNull { it.startsWith("$name:", ignoreCase = true) }
+            ?.substringAfter(':')?.trim().orEmpty()
+
     fun stop() {
-        listener?.let { runCatching { nsd.stopServiceDiscovery(it) } }
-        listener = null
+        job?.cancel(); job = null
+        multicastLock?.let { if (it.isHeld) it.release() }
+        multicastLock = null
     }
 }
