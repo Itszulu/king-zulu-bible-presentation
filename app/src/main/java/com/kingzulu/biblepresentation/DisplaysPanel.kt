@@ -31,7 +31,18 @@ fun DisplaysPanel() {
 
     LaunchedEffect(scanning){if(scanning){delay(3500);discovery.stop();scanning=false}}
     fun scanLocal(){discovery.stop();devices.clear();scanning=true;discovery.start{d->if(devices.none{it.host==d.host&&it.port==d.port})devices.add(d)}}
-    fun showCastPicker(){if(activity==null)return;runCatching{MediaRouteChooserDialog(activity).apply{routeSelector=CastContext.getSharedInstance(context).mergedSelector;setTitle("Choose a display");setOnDismissListener{castDevice=castBridge.currentDeviceName()};show()}}}
+    fun showCastPicker(){
+        if(activity==null)return
+        runCatching{
+            val selector=CastContext.getSharedInstance(context).mergedSelector ?: return@runCatching
+            MediaRouteChooserDialog(activity).apply{
+                routeSelector=selector
+                setTitle("Choose a display")
+                setOnDismissListener{castDevice=castBridge.currentDeviceName()}
+                show()
+            }
+        }
+    }
     DisposableEffect(Unit){onDispose{discovery.stop();wiredBridge.dismiss()}}
 
     Column(verticalArrangement=Arrangement.spacedBy(14.dp)){
