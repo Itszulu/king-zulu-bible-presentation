@@ -15,17 +15,13 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 @Composable fun AiListenPanel(onPreview:(PresentationSlide)->Unit,onGoLive:(PresentationSlide)->Unit){
- val context=LocalContext.current;var listening by remember{mutableStateOf(false)};var transcript by remember{mutableStateOf("")};var status by remember{mutableStateOf("Ready to listen")};var detectedSlide by remember{mutableStateOf<PresentationSlide?>(null)}
- fun analyze(text:String){
-   // Primary behaviour: understand quoted/remembered Scripture wording. Explicit references remain a fast fallback.
-   val quoted=OfflineBibleRepository.searchQuote(text)
-   val explicit=if(quoted==null)SpokenBibleReferenceParser.parse(text)?.let{OfflineBibleRepository.get(it)}else null
-   val verse=quoted?:explicit
-   if(verse!=null)detectedSlide=PresentationSlide(verse.reference.display(),verse.text,verse.translation)
-   status=when{quoted!=null->"Scripture wording matched: ${quoted.reference.display()}";explicit!=null->"Scripture reference detected: ${explicit.reference.display()}";else->"Listening for Scripture wording or a reference…"}
- }
+ val context=LocalContext.current;val scope=rememberCoroutineScope();var listening by remember{mutableStateOf(false)};var transcript by remember{mutableStateOf("")};var status by remember{mutableStateOf("Ready to listen")};var detectedSlide by remember{mutableStateOf<PresentationSlide?>(null)};var analysisId by remember{mutableIntStateOf(0)}
+ fun analyze(text:String){val id=++analysisId;status="Searching Scripture…";scope.launch{val result=withContext(Dispatchers.Default){val quoted=OfflineBibleRepository.searchQuote(text);val explicit=if(quoted==null)SpokenBibleReferenceParser.parse(text)?.let{OfflineBibleRepository.get(it)}else null;Triple(quoted,explicit,quoted?:explicit)};if(id!=analysisId)return@launch;val(quoted,explicit,verse)=result;if(verse!=null)detectedSlide=PresentationSlide(verse.reference.display(),verse.text,verse.translation);status=when{quoted!=null->"Scripture wording matched: ${quoted.reference.display()}";explicit!=null->"Scripture reference detected: ${explicit.reference.display()}";else->"Listening for Scripture wording or a reference…"}}}
  val controller=remember{AiListenController(context,{listening=it},{partial->transcript=partial;status="Listening…"},{finalText->transcript=finalText;analyze(finalText)},{status=it})}
  DisposableEffect(Unit){onDispose{controller.destroy()}}
  val permissionLauncher=rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()){granted->if(granted)controller.start()else status="Microphone permission is required for AI Listen"}
