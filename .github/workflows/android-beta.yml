@@ -34,17 +34,33 @@ jobs:
             -o app/src/main/assets/bibles/kjv.json
           test -s app/src/main/assets/bibles/kjv.json
           python3 - <<'PY'
-          import json, sys
+          import json
           p='app/src/main/assets/bibles/kjv.json'
           d=json.load(open(p,encoding='utf-8'))
-          # Accept the source's supported JSON shapes, but refuse to build if canonical coverage is missing.
-          text=json.dumps(d).lower()
-          required=['genesis','exodus','psalm','isaiah','matthew','john','romans','revelation']
-          missing=[b for b in required if b not in text]
-          if missing:
-              raise SystemExit('KJV validation failed; missing books: '+', '.join(missing))
-          print('KJV asset bytes:', len(open(p,'rb').read()))
-          print('KJV canonical spot-check passed')
+          expected=['Genesis','Exodus','Leviticus','Numbers','Deuteronomy','Joshua','Judges','Ruth','1 Samuel','2 Samuel','1 Kings','2 Kings','1 Chronicles','2 Chronicles','Ezra','Nehemiah','Esther','Job','Psalms','Proverbs','Ecclesiastes','Song of Solomon','Isaiah','Jeremiah','Lamentations','Ezekiel','Daniel','Hosea','Joel','Amos','Obadiah','Jonah','Micah','Nahum','Habakkuk','Zephaniah','Haggai','Zechariah','Malachi','Matthew','Mark','Luke','John','Acts','Romans','1 Corinthians','2 Corinthians','Galatians','Ephesians','Philippians','Colossians','1 Thessalonians','2 Thessalonians','1 Timothy','2 Timothy','Titus','Philemon','Hebrews','James','1 Peter','2 Peter','1 John','2 John','3 John','Jude','Revelation']
+          books=d.get('books',[])
+          names=[b.get('englishName') for b in books]
+          missing=[b for b in expected if b not in names]
+          extras=[b for b in names if b not in expected]
+          chapters=sum(len(b.get('chapters',[])) for b in books)
+          verses=sum(len(c.get('verses',[])) for b in books for c in b.get('chapters',[]))
+          if len(books)!=66 or missing or extras:
+              raise SystemExit(f'KJV book validation failed: count={len(books)} missing={missing} extras={extras}')
+          if chapters!=1189:
+              raise SystemExit(f'KJV chapter validation failed: expected 1189, got {chapters}')
+          if verses!=31102:
+              raise SystemExit(f'KJV verse validation failed: expected 31102, got {verses}')
+          # Explicit regression checks for books/verses reported missing during device testing.
+          lookup={b['englishName']:b for b in books}
+          def verse(book,chapter,number):
+              bk=lookup[book]
+              ch=next((c for c in bk['chapters'] if c.get('chapter')==chapter),None)
+              if not ch: return None
+              return next((v for v in ch['verses'] if v.get('number')==number),None)
+          for ref in [('Jeremiah',29,11),('John',5,24),('Romans',8,28),('Revelation',22,21)]:
+              if not verse(*ref): raise SystemExit('KJV regression check failed: %s %s:%s'%ref)
+          print(f'KJV VERIFIED: {len(books)} books, {chapters} chapters, {verses} verses')
+          print('Jeremiah 29:11, John 5:24, Romans 8:28 and Revelation 22:21 verified')
           PY
       - name: Set up Gradle 8.13
         uses: gradle/actions/setup-gradle@v4
