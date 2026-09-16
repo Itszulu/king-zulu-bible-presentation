@@ -29,9 +29,11 @@ private fun autoTextSize(text:String):Int = when {
  Box(modifier.aspectRatio(16f/9f).background(Color.Black),contentAlignment=Alignment.Center){
   theme?.localPath?.let{AsyncImage(File(it),null,Modifier.fillMaxSize(),contentScale=ContentScale.Crop);Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha=theme.overlay)))}
   if(slide==null) Text("KING ZULU",color=Color.Gray) else {
-   val size=if(autoFit) minOf(textSize?:40,autoTextSize(slide.text)) else (textSize?:28)
+   // Countdown slides bind to the app-level clock, not to a frozen text snapshot.
+   val renderedText = if(slide.kind=="countdown") "SERVICE BEGINS IN\n\n${CountdownStore.display()}" else slide.text
+   val size=if(autoFit) minOf(textSize?:40,autoTextSize(renderedText)) else (textSize?:28)
    Column(Modifier.fillMaxSize().padding(horizontal=30.dp,vertical=22.dp),horizontalAlignment=Alignment.CenterHorizontally,verticalArrangement=Arrangement.Center){
-    Text(slide.text,color=Color.White,fontSize=size.sp,lineHeight=(size*1.22f).sp,textAlign=TextAlign.Center,fontWeight=FontWeight.Medium,maxLines=14)
+    Text(renderedText,color=Color.White,fontSize=size.sp,lineHeight=(size*1.22f).sp,textAlign=TextAlign.Center,fontWeight=FontWeight.Medium,maxLines=14)
     if(slide.reference.isNotBlank()){Spacer(Modifier.height(12.dp));Text("${slide.reference} • ${slide.translation}",color=Color.LightGray,fontSize=(size*.52f).coerceAtLeast(11f).sp,fontWeight=FontWeight.Bold)}
    }
   }
