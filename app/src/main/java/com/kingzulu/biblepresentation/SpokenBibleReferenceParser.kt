@@ -1,74 +1,17 @@
 package com.kingzulu.biblepresentation
 
 object SpokenBibleReferenceParser {
-    private val numberWords = mapOf(
-        "one" to 1, "two" to 2, "three" to 3, "four" to 4, "five" to 5, "six" to 6,
-        "seven" to 7, "eight" to 8, "nine" to 9, "ten" to 10, "eleven" to 11, "twelve" to 12,
-        "thirteen" to 13, "fourteen" to 14, "fifteen" to 15, "sixteen" to 16, "seventeen" to 17,
-        "eighteen" to 18, "nineteen" to 19, "twenty" to 20, "thirty" to 30, "forty" to 40,
-        "fifty" to 50, "sixty" to 60, "seventy" to 70, "eighty" to 80, "ninety" to 90
-    )
-    private val ordinals = mapOf("first" to "1", "second" to "2", "third" to "3")
-    private val books = listOf(
-        "song of solomon","song of songs","1 thessalonians","2 thessalonians","1 corinthians","2 corinthians",
-        "1 chronicles","2 chronicles","1 samuel","2 samuel","1 kings","2 kings","1 timothy","2 timothy",
-        "1 peter","2 peter","1 john","2 john","3 john","genesis","exodus","leviticus","numbers","deuteronomy",
-        "joshua","judges","ruth","ezra","nehemiah","esther","job","psalms","psalm","proverbs","ecclesiastes",
-        "isaiah","jeremiah","lamentations","ezekiel","daniel","hosea","joel","amos","obadiah","jonah","micah",
-        "nahum","habakkuk","zephaniah","haggai","zechariah","malachi","matthew","mark","luke","john","acts",
-        "romans","galatians","ephesians","philippians","colossians","titus","philemon","hebrews","james","jude","revelation"
-    )
-
-    private fun spokenNumber(tokens: List<String>): Int? {
-        if (tokens.isEmpty()) return null
-        tokens.firstOrNull()?.toIntOrNull()?.let { return it }
-        var total = 0; var found = false
-        tokens.forEach { token ->
-            token.toIntOrNull()?.let { total += it; found = true } ?: numberWords[token]?.let { total += it; found = true }
-        }
-        return if (found) total else null
-    }
-
-    private fun normalize(raw: String): String {
-        var s = raw.lowercase().replace(Regex("[^a-z0-9: -]"), " ").replace(Regex("\\s+"), " ").trim()
-        ordinals.forEach { (word, digit) -> s = s.replace(Regex("\\b$word\\b"), digit) }
-        return s
-    }
-
-    fun parse(transcript: String): BibleReference? {
-        val clean = normalize(transcript)
-        // Search every position for a known Bible book, longest names first. This lets a preacher say
-        // “please turn with me to John chapter three verse sixteen” instead of only the bare reference.
-        for (book in books.sortedByDescending { it.length }) {
-            val regex = Regex("\\b${Regex.escape(book)}\\b")
-            for (match in regex.findAll(clean)) {
-                val tail = clean.substring(match.range.first).trim()
-                parseFromBook(tail)?.let { return it }
-            }
-        }
-        // Also handle abbreviated references embedded in a sentence by trying short suffix windows.
-        val words = clean.split(" ")
-        for (start in words.indices) {
-            val candidate = words.drop(start).take(8).joinToString(" ")
-            BibleReferenceParser.parse(candidate)?.let { return it }
-        }
-        return null
-    }
-
-    private fun parseFromBook(text: String): BibleReference? {
-        BibleReferenceParser.parse(text)?.let { return it }
-        val tokens = text.split(" ")
-        val chapterIndex = tokens.indexOfFirst { it == "chapter" }
-        val verseIndex = tokens.indexOfFirst { it == "verse" || it == "verses" }
-        if (chapterIndex <= 0 || verseIndex <= chapterIndex) return null
-        val bookText = tokens.subList(0, chapterIndex).joinToString(" ")
-        val chapter = spokenNumber(tokens.subList(chapterIndex + 1, verseIndex)) ?: return null
-        val after = tokens.drop(verseIndex + 1)
-        val endAt = after.indexOfFirst { it == "to" || it == "through" || it == "and" || it == "then" || it == "where" || it == "which" || it == "says" || it == "reads" }
-        val firstTokens = if (endAt >= 0) after.take(endAt) else after.take(3)
-        val verse = spokenNumber(firstTokens) ?: return null
-        val separator = after.indexOfFirst { it == "to" || it == "through" }
-        val verseEnd = if (separator >= 0) spokenNumber(after.drop(separator + 1).take(3)) else null
-        return BibleReferenceParser.parse("$bookText $chapter $verse${verseEnd?.let { "-$it" } ?: ""}")
-    }
+ private val numberWords=mapOf("one" to 1,"two" to 2,"three" to 3,"four" to 4,"five" to 5,"six" to 6,"seven" to 7,"eight" to 8,"nine" to 9,"ten" to 10,"eleven" to 11,"twelve" to 12,"thirteen" to 13,"fourteen" to 14,"fifteen" to 15,"sixteen" to 16,"seventeen" to 17,"eighteen" to 18,"nineteen" to 19,"twenty" to 20,"thirty" to 30,"forty" to 40,"fifty" to 50,"sixty" to 60,"seventy" to 70,"eighty" to 80,"ninety" to 90)
+ private val ordinalWords=mapOf("first" to 1,"second" to 2,"third" to 3,"fourth" to 4,"fifth" to 5,"sixth" to 6,"seventh" to 7,"eighth" to 8,"ninth" to 9,"tenth" to 10,"eleventh" to 11,"twelfth" to 12,"thirteenth" to 13,"fourteenth" to 14,"fifteenth" to 15,"sixteenth" to 16,"seventeenth" to 17,"eighteenth" to 18,"nineteenth" to 19,"twentieth" to 20,"thirtieth" to 30,"fortieth" to 40,"fiftieth" to 50,"sixtieth" to 60,"seventieth" to 70,"eightieth" to 80,"ninetieth" to 90)
+ private val books=listOf("song of solomon","song of songs","1 thessalonians","2 thessalonians","1 corinthians","2 corinthians","1 chronicles","2 chronicles","1 samuel","2 samuel","1 kings","2 kings","1 timothy","2 timothy","1 peter","2 peter","1 john","2 john","3 john","genesis","exodus","leviticus","numbers","deuteronomy","joshua","judges","ruth","ezra","nehemiah","esther","job","psalms","psalm","proverbs","ecclesiastes","isaiah","jeremiah","lamentations","ezekiel","daniel","hosea","joel","amos","obadiah","jonah","micah","nahum","habakkuk","zephaniah","haggai","zechariah","malachi","matthew","mark","luke","john","acts","romans","galatians","ephesians","philippians","colossians","titus","philemon","hebrews","james","jude","revelation")
+ private fun spokenNumber(tokens:List<String>):Int?{if(tokens.isEmpty())return null;tokens.firstOrNull()?.toIntOrNull()?.let{return it};var total=0;var found=false;tokens.forEach{t->val v=numberWords[t]?:ordinalWords[t];if(v!=null){total+=v;found=true}};return if(found)total else null}
+ private fun normalize(raw:String):String{var s=raw.lowercase().replace(Regex("[^a-z0-9: -]")," ").replace(Regex("\\s+")," ").trim();listOf("the book of","book of","the book","book").forEach{s=s.replace(it," ")};return s.replace(Regex("\\s+")," ").trim()}
+ fun parse(transcript:String):BibleReference?{val clean=normalize(transcript);for(book in books.sortedByDescending{it.length}){for(m in Regex("\\b${Regex.escape(book)}\\b").findAll(clean)){parseFromBook(clean.substring(m.range.first).trim())?.let{return it}}};val words=clean.split(" ");for(start in words.indices){for(len in 3..minOf(10,words.size-start)){BibleReferenceParser.parse(words.drop(start).take(len).joinToString(" "))?.let{return it}}};return null}
+ private fun parseFromBook(text:String):BibleReference?{
+  BibleReferenceParser.parse(text)?.let{return it};val tokens=text.split(" ");val chapterIndex=tokens.indexOfFirst{it=="chapter"};val verseIndex=tokens.indexOfFirst{it=="verse"||it=="verses"}
+  if(chapterIndex>0&&verseIndex>chapterIndex){val book=tokens.subList(0,chapterIndex).joinToString(" ");val chapter=spokenNumber(tokens.subList(chapterIndex+1,verseIndex))?:return null;val after=tokens.drop(verseIndex+1);val stop=after.indexOfFirst{it in setOf("to","through","and","then","where","which","says","reads")};val verse=spokenNumber(if(stop>=0)after.take(stop)else after.take(4))?:return null;val sep=after.indexOfFirst{it=="to"||it=="through"};val end=if(sep>=0)spokenNumber(after.drop(sep+1).take(4))else null;return BibleReferenceParser.parse("$book $chapter $verse${end?.let{"-$it"}?:""}")}
+  // Natural forms such as “John the second chapter and the first verse”.
+  val chapterWord=tokens.indexOfFirst{it=="chapter"};if(chapterWord>0){val book=tokens.subList(0,chapterWord).filterNot{it=="the"}.joinToString(" ");val before=tokens.subList(0,chapterWord);val chapter=spokenNumber(before.takeLast(3).filterNot{it=="the"})?:return null;val vi=tokens.indexOfFirst{it=="verse"||it=="verses"};if(vi>chapterWord){val verse=spokenNumber(tokens.subList(chapterWord+1,vi).filterNot{it=="and"||it=="the"})?:return null;return BibleReferenceParser.parse("$book $chapter $verse")}}
+  return null
+ }
 }
