@@ -7,9 +7,6 @@
         android:allowBackup="true"
         android:label="King Zulu Bible Presentation"
         android:theme="@style/Theme.KingZulu">
-        <meta-data
-            android:name="com.google.android.gms.cast.framework.OPTIONS_PROVIDER_CLASS_NAME"
-            android:value="com.kingzulu.biblepresentation.CastOptionsProvider" />
         <activity
             android:name=".MainActivity"
             android:exported="true">
