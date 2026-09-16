@@ -21,18 +21,19 @@ import kotlinx.coroutines.withContext
 
 @Composable fun AiListenPanel(onPreview:(PresentationSlide)->Unit,onGoLive:(PresentationSlide)->Unit){
  val context=LocalContext.current;val scope=rememberCoroutineScope();var listening by remember{mutableStateOf(false)};var transcript by remember{mutableStateOf("")};var status by remember{mutableStateOf("Ready to listen")};var candidates by remember{mutableStateOf<List<ScriptureMatch>>(emptyList())};var explicitSlide by remember{mutableStateOf<PresentationSlide?>(null)};var analysisId by remember{mutableIntStateOf(0)};var autoLive by remember{mutableStateOf(OperatorPreferences.aiAutoLive(context))}
+ val currentAutoLive by rememberUpdatedState(autoLive);val currentPreview by rememberUpdatedState(onPreview);val currentGoLive by rememberUpdatedState(onGoLive)
  fun setAutoLive(enabled:Boolean){autoLive=enabled;OperatorPreferences.setAiAutoLive(context,enabled)}
  fun slide(v:Verse)=PresentationSlide(v.reference.display(),v.text,v.translation)
- fun analyze(text:String){val id=++analysisId;status="Searching Scripture…";scope.launch{val result=withContext(Dispatchers.Default){val explicit=SpokenBibleReferenceParser.parse(text)?.let{OfflineBibleRepository.get(it)};val matches=if(explicit==null)OfflineBibleRepository.searchQuoteMatches(text,5)else emptyList();Pair(explicit,matches)};if(id!=analysisId)return@launch;val(explicit,matches)=result;explicitSlide=explicit?.let(::slide);candidates=matches
-   if(explicit!=null){val s=slide(explicit);if(autoLive){onPreview(s);onGoLive(s);status="LIVE • ${s.reference}"}else status="Scripture reference detected: ${s.reference}";return@launch}
+ val analyzeLatest by rememberUpdatedState<(String)->Unit>({text->val id=++analysisId;status="Searching Scripture…";scope.launch{val result=withContext(Dispatchers.Default){val explicit=SpokenBibleReferenceParser.parse(text)?.let{OfflineBibleRepository.get(it)};val matches=if(explicit==null)OfflineBibleRepository.searchQuoteMatches(text,5)else emptyList();Pair(explicit,matches)};if(id!=analysisId)return@launch;val(explicit,matches)=result;explicitSlide=explicit?.let(::slide);candidates=matches
+   if(explicit!=null){val s=slide(explicit);if(currentAutoLive){currentPreview(s);currentGoLive(s);status="LIVE • ${s.reference}"}else status="Scripture reference detected: ${s.reference}";return@launch}
    val best=matches.firstOrNull();val second=matches.getOrNull(1);val decisive=best!=null&&best.score>=0.78&&(second==null||best.score-second.score>=0.16)
    if(best==null){status="No confident match yet — keep speaking"}
-   else if(autoLive&&decisive){val s=slide(best.verse);onPreview(s);onGoLive(s);status="LIVE • ${s.reference}"}
+   else if(currentAutoLive&&decisive){val s=slide(best.verse);currentPreview(s);currentGoLive(s);status="LIVE • ${s.reference}"}
    else if(matches.size>1){status="${matches.size} possible matches — choose the intended Scripture"}
    else status="Possible Scripture match found"
- }}
- val controller=remember{AiListenController(context,{listening=it},{partial->transcript=partial;status="Listening…"},{finalText->transcript=finalText;analyze(finalText)},{status=it})}
- DisposableEffect(Unit){onDispose{controller.destroy()}}
+ }})
+ val controller=remember(context){AiListenController(context,{listening=it},{partial->transcript=partial;status="Listening…"},{finalText->transcript=finalText;analyzeLatest(finalText)},{status=it})}
+ DisposableEffect(controller){onDispose{controller.destroy()}}
  val permissionLauncher=rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()){granted->if(granted)controller.start()else status="Microphone permission is required for AI Listen"}
  fun startListening(){if(ContextCompat.checkSelfPermission(context,Manifest.permission.RECORD_AUDIO)==PackageManager.PERMISSION_GRANTED)controller.start()else permissionLauncher.launch(Manifest.permission.RECORD_AUDIO)}
  Text("AI Listen",fontSize=32.sp,fontWeight=FontWeight.Bold);Text("Listen for Scripture wording first, or speak a Bible reference.",color=Color(0xFFA6A7AD))
