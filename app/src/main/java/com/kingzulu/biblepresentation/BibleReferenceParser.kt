@@ -1,44 +1,9 @@
 package com.kingzulu.biblepresentation
 
-data class BibleReference(val book: String, val chapter: Int, val verseStart: Int? = null, val verseEnd: Int? = null) {
-    fun display() = buildString { append("$book $chapter"); verseStart?.let { append(":$it"); if (verseEnd != null && verseEnd != it) append("–$verseEnd") } }
-}
-
-object BibleReferenceParser {
-    private val aliases = mutableMapOf<String, String>().apply {
-        fun add(book: String, vararg names: String) { (listOf(book) + names).forEach { put(it.lowercase(), book) } }
-        add("Genesis", "gen", "ge", "gn"); add("Exodus", "ex", "exo", "exod"); add("Leviticus", "lev", "lv", "levit"); add("Numbers", "num", "nu", "nm", "numb"); add("Deuteronomy", "deut", "dt", "deu")
-        add("Joshua", "josh", "jos", "jsh"); add("Judges", "judg", "jdg", "jgs"); add("Ruth", "ru", "rth"); add("1 Samuel", "1 sam", "1sam", "1 sa", "1sa"); add("2 Samuel", "2 sam", "2sam", "2 sa", "2sa")
-        add("1 Kings", "1 kgs", "1kgs", "1 ki", "1ki", "1 king"); add("2 Kings", "2 kgs", "2kgs", "2 ki", "2ki", "2 king"); add("1 Chronicles", "1 chr", "1chr", "1 ch", "1ch"); add("2 Chronicles", "2 chr", "2chr", "2 ch", "2ch")
-        add("Ezra", "ezr"); add("Nehemiah", "neh", "ne"); add("Esther", "est", "esth"); add("Job", "jb"); add("Psalms", "psalm", "ps", "psa", "psm"); add("Proverbs", "prov", "pr", "prv", "pro")
-        add("Ecclesiastes", "eccl", "ecc", "ec", "ecl"); add("Song of Solomon", "song", "songs", "sos", "song of songs", "ss"); add("Isaiah", "isa", "is"); add("Jeremiah", "jer", "je", "jr"); add("Lamentations", "lam", "la")
-        add("Ezekiel", "ezek", "eze", "ezk"); add("Daniel", "dan", "dn"); add("Hosea", "hos", "ho"); add("Joel", "jl"); add("Amos", "am"); add("Obadiah", "obad", "ob"); add("Jonah", "jon"); add("Micah", "mic", "mi")
-        add("Nahum", "nah", "na"); add("Habakkuk", "hab"); add("Zephaniah", "zeph", "zep"); add("Haggai", "hag"); add("Zechariah", "zech", "zec", "zec"); add("Malachi", "mal")
-        add("Matthew", "matt", "mt", "mat"); add("Mark", "mk", "mrk", "mar"); add("Luke", "lk", "luk"); add("John", "jn", "jhn", "joh"); add("Acts", "act", "ac"); add("Romans", "rom", "ro", "rm")
-        add("1 Corinthians", "1 cor", "1cor", "1 co", "1co"); add("2 Corinthians", "2 cor", "2cor", "2 co", "2co"); add("Galatians", "gal", "ga"); add("Ephesians", "eph", "ep"); add("Philippians", "phil", "php", "phlp", "phi")
-        add("Colossians", "col", "coloss"); add("1 Thessalonians", "1 thess", "1thess", "1 thes", "1thes", "1 th", "1th"); add("2 Thessalonians", "2 thess", "2thess", "2 thes", "2thes", "2 th", "2th")
-        add("1 Timothy", "1 tim", "1tim", "1 ti", "1ti"); add("2 Timothy", "2 tim", "2tim", "2 ti", "2ti"); add("Titus", "tit"); add("Philemon", "philem", "phm", "phile"); add("Hebrews", "heb", "hebr")
-        add("James", "jas", "jam", "jm"); add("1 Peter", "1 pet", "1pet", "1 pe", "1pe", "1 ptr"); add("2 Peter", "2 pet", "2pet", "2 pe", "2pe", "2 ptr"); add("1 John", "1 jn", "1jn", "1 john", "1john"); add("2 John", "2 jn", "2jn", "2 john", "2john"); add("3 John", "3 jn", "3jn", "3 john", "3john")
-        add("Jude", "jud"); add("Revelation", "rev", "rv", "re", "revelations", "revel")
-    }
-
-    fun parse(input: String): BibleReference? {
-        var s = input.lowercase().trim()
-            .replace(Regex("\\bchapter\\b"), " ")
-            .replace(Regex("\\bverses?\\b"), " ")
-            .replace(Regex("\\bvs?\\.?\\b"), " ")
-            .replace(":", " ")
-            .replace(",", " ")
-            .replace(Regex("([a-z])(\\d)"), "$1 $2")
-            .replace(Regex("(\\d)([a-z])"), "$1 $2")
-            .replace(Regex("\\s+"), " ")
-            .trim()
-        val match = Regex("^(.+?)\\s+(\\d+)(?:\\s+(\\d+)(?:\\s*(?:-|–|to|through)\\s*(\\d+))?)?$", RegexOption.IGNORE_CASE).matchEntire(s) ?: return null
-        val rawBook = match.groupValues[1].trim().replace(Regex("\\s+"), " ")
-        val book = aliases[rawBook] ?: return null
-        val chapter = match.groupValues[2].toIntOrNull() ?: return null
-        val verseStart = match.groupValues[3].takeIf { it.isNotBlank() }?.toIntOrNull()
-        val verseEnd = match.groupValues[4].takeIf { it.isNotBlank() }?.toIntOrNull()
-        return BibleReference(book, chapter, verseStart, verseEnd)
-    }
+data class BibleReference(val book:String,val chapter:Int,val verseStart:Int?=null,val verseEnd:Int?=null){fun display()=buildString{append("$book $chapter");verseStart?.let{append(":$it");if(verseEnd!=null&&verseEnd!=it)append("–$verseEnd")}}}
+object BibleReferenceParser{
+ private val aliases=mutableMapOf<String,String>().apply{fun add(book:String,vararg names:String){(listOf(book)+names).forEach{put(it.lowercase(),book)}}
+ add("Genesis","gen","ge","gn");add("Exodus","ex","exo","exod");add("Leviticus","lev","lv","levit");add("Numbers","num","nu","nm","numb");add("Deuteronomy","deut","dt","deu");add("Joshua","josh","jos","jsh");add("Judges","judg","jdg","jgs");add("Ruth","ru","rth");add("1 Samuel","1 sam","1sam","1 sa","1sa");add("2 Samuel","2 sam","2sam","2 sa","2sa");add("1 Kings","1 kgs","1kgs","1 ki","1ki","1 king");add("2 Kings","2 kgs","2kgs","2 ki","2ki","2 king");add("1 Chronicles","1 chr","1chr","1 ch","1ch");add("2 Chronicles","2 chr","2chr","2 ch","2ch");add("Ezra","ezr");add("Nehemiah","neh","ne");add("Esther","est","esth");add("Job","jb");add("Psalms","psalm","ps","psa","psm");add("Proverbs","prov","pr","prv","pro");add("Ecclesiastes","eccl","ecc","ec","ecl");add("Song of Solomon","song","songs","sos","song of songs","ss");add("Isaiah","isa","is");add("Jeremiah","jer","je","jr");add("Lamentations","lam","la");add("Ezekiel","ezek","eze","ezk");add("Daniel","dan","dn");add("Hosea","hos","ho");add("Joel","jl");add("Amos","am");add("Obadiah","obad","ob");add("Jonah","jon");add("Micah","mic","mi");add("Nahum","nah","na");add("Habakkuk","hab");add("Zephaniah","zeph","zep");add("Haggai","hag");add("Zechariah","zech","zec");add("Malachi","mal");add("Matthew","matt","mt","mat");add("Mark","mk","mrk","mar");add("Luke","lk","luk");add("John","jn","jhn","joh");add("Acts","act","ac");add("Romans","rom","ro","rm");add("1 Corinthians","1 cor","1cor","1 co","1co");add("2 Corinthians","2 cor","2cor","2 co","2co");add("Galatians","gal","ga");add("Ephesians","eph","ep");add("Philippians","phil","php","phlp","phi");add("Colossians","col","coloss");add("1 Thessalonians","1 thess","1thess","1 thes","1thes","1 th","1th");add("2 Thessalonians","2 thess","2thess","2 thes","2thes","2 th","2th");add("1 Timothy","1 tim","1tim","1 ti","1ti");add("2 Timothy","2 tim","2tim","2 ti","2ti");add("Titus","tit");add("Philemon","philem","phm","phile");add("Hebrews","heb","hebr");add("James","jas","jam","jm");add("1 Peter","1 pet","1pet","1 pe","1pe","1 ptr");add("2 Peter","2 pet","2pet","2 pe","2pe","2 ptr");add("1 John","1 jn","1jn","1 john","1john");add("2 John","2 jn","2jn","2 john","2john");add("3 John","3 jn","3jn","3 john","3john");add("Jude","jud");add("Revelation","rev","rv","re","revelations","revel")}
+ fun suggestions(input:String,limit:Int=5):List<String>{val raw=input.lowercase().trim();if(raw.isBlank())return emptyList();val bookPart=raw.replace(Regex("\\s+\\d.*$"),"").trim();return aliases.entries.filter{(alias,book)->alias.startsWith(bookPart)||book.lowercase().startsWith(bookPart)}.sortedWith(compareBy<Map.Entry<String,String>>{if(it.key==bookPart)0 else 1}.thenBy{it.key.length}).map{it.value}.distinct().take(limit)}
+ fun parse(input:String):BibleReference?{var s=input.lowercase().trim().replace(Regex("\\bchapter\\b")," ").replace(Regex("\\bverses?\\b")," ").replace(Regex("\\bvs?\\.?\\b")," ").replace(":"," ").replace(","," ").replace(Regex("([a-z])(\\d)"),"$1 $2").replace(Regex("(\\d)([a-z])"),"$1 $2").replace(Regex("\\s+")," ").trim();val m=Regex("^(.+?)\\s+(\\d+)(?:\\s+(\\d+)(?:\\s*(?:-|–|to|through)\\s*(\\d+))?)?$",RegexOption.IGNORE_CASE).matchEntire(s)?:return null;val book=aliases[m.groupValues[1].trim().replace(Regex("\\s+")," ")]?:return null;val chapter=m.groupValues[2].toIntOrNull()?:return null;val start=m.groupValues[3].takeIf{it.isNotBlank()}?.toIntOrNull();val end=m.groupValues[4].takeIf{it.isNotBlank()}?.toIntOrNull();return BibleReference(book,chapter,start,end)}
 }
