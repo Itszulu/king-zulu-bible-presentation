@@ -1,7 +1,6 @@
 @file:OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
 package com.kingzulu.biblepresentation
 import android.os.Bundle
-import android.os.SystemClock
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
@@ -23,7 +22,6 @@ import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import kotlinx.coroutines.delay
 private val KZPurple=Color(0xFF7B61FF);private val KZPurpleSoft=Color(0xFF9B8AFF);private val KZBlack=Color(0xFF0A0A0B);private val KZSurface=Color(0xFF151518);private val KZSurface2=Color(0xFF202025);private val KZText=Color(0xFFF7F7F8);private val KZMuted=Color(0xFFAAAAB2);private val KZLive=Color(0xFFFF5C68)
 private val KingZuluDark=darkColorScheme(primary=KZPurple,onPrimary=Color.White,secondary=KZPurpleSoft,background=KZBlack,surface=KZSurface,surfaceVariant=KZSurface2,onBackground=KZText,onSurface=KZText,outline=Color(0xFF3B3B42))
 class MainActivity:ComponentActivity(){override fun onCreate(savedInstanceState:Bundle?){super.onCreate(savedInstanceState);OfflineBibleRepository.initialize(this);setContent{MaterialTheme(colorScheme=KingZuluDark){KingZuluApp()}}}}
@@ -31,36 +29,22 @@ class MainActivity:ComponentActivity(){override fun onCreate(savedInstanceState:
 @Composable private fun SectionCard(content:@Composable ColumnScope.()->Unit){Surface(Modifier.fillMaxWidth(),color=KZSurface,shape=RoundedCornerShape(22.dp)){Column(Modifier.padding(18.dp),verticalArrangement=Arrangement.spacedBy(12.dp),content=content)}}
 @Composable private fun PageHeading(title:String,subtitle:String){Text(title,fontSize=32.sp,fontWeight=FontWeight.Black);Text(subtitle,color=KZMuted,fontSize=14.sp)}
 @Composable fun BiblePanel(onPreview:(PresentationSlide)->Unit){var q by rememberSaveable{mutableStateOf("")};var message by rememberSaveable{mutableStateOf("")};val keyboard=LocalSoftwareKeyboardController.current;fun submit(){val r=BibleReferenceParser.parse(q);val v=r?.let{OfflineBibleRepository.get(it)};if(v!=null){message="";keyboard?.hide();onPreview(PresentationSlide(v.reference.display(),v.text,v.translation))}else message="Verse not found — check the reference"};val suggestions=remember(q){if(q.any{it.isDigit()})emptyList()else BibleReferenceParser.suggestions(q)};PageHeading("Bible","Find Scripture fast and prepare it for the congregation screen.");SectionCard{OutlinedTextField(q,{q=it;message=""},Modifier.fillMaxWidth(),singleLine=true,label={Text("Reference")},placeholder={Text("Jn 5 24 • Rom 8 28")},keyboardOptions=KeyboardOptions(imeAction=ImeAction.Search),keyboardActions=KeyboardActions(onSearch={submit()}));if(suggestions.isNotEmpty())Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(6.dp)){suggestions.take(3).forEach{book->AssistChip(onClick={q="$book "},label={Text(book,maxLines=1)})}};Button({submit()},Modifier.fillMaxWidth()){Text("PREVIEW VERSE")};if(message.isNotBlank())Text(message,color=KZPurpleSoft)}}
-@Composable fun MediaPanel(onPreview:(PresentationSlide)->Unit,onGoLive:(PresentationSlide)->Unit){var mode by rememberSaveable{mutableStateOf("Lyrics")};PageHeading("Media","Lyrics and a real countdown timer.");Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(8.dp)){listOf("Lyrics","Timer").forEach{item->if(mode==item)Button({mode=item},Modifier.weight(1f)){Text(item)}else OutlinedButton({mode=item},Modifier.weight(1f)){Text(item)}}};if(mode=="Lyrics")LyricsEditor(onPreview)else TimerEditor(onPreview,onGoLive)}
+@Composable fun MediaPanel(onPreview:(PresentationSlide)->Unit,onGoLive:(PresentationSlide)->Unit){var mode by rememberSaveable{mutableStateOf("Lyrics")};PageHeading("Media","Lyrics and a persistent countdown timer.");Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(8.dp)){listOf("Lyrics","Timer").forEach{item->if(mode==item)Button({mode=item},Modifier.weight(1f)){Text(item)}else OutlinedButton({mode=item},Modifier.weight(1f)){Text(item)}}};if(mode=="Lyrics")LyricsEditor(onPreview)else TimerEditor(onPreview,onGoLive)}
 @Composable private fun LyricsEditor(onPreview:(PresentationSlide)->Unit){var text by rememberSaveable{mutableStateOf("")};SectionCard{OutlinedTextField(text,{text=it},Modifier.fillMaxWidth().height(220.dp),label={Text("Paste or type lyrics")});Button({if(text.isNotBlank())onPreview(PresentationSlide(text=text.lines().take(4).joinToString("\n"),kind="lyrics"))},Modifier.fillMaxWidth()){Text("PREVIEW LYRICS")}}}
 @Composable private fun TimerEditor(onPreview:(PresentationSlide)->Unit,onGoLive:(PresentationSlide)->Unit){
-    var minutes by rememberSaveable { mutableIntStateOf(5) }
-    var remaining by rememberSaveable { mutableLongStateOf(300L) }
-    var running by rememberSaveable { mutableStateOf(false) }
-    var endElapsed by rememberSaveable { mutableLongStateOf(0L) }
-    fun slide() = PresentationSlide(text="SERVICE BEGINS IN\n\n${formatCountdown(remaining)}",kind="countdown")
-    LaunchedEffect(running,endElapsed){
-        while(running){
-            remaining=((endElapsed-SystemClock.elapsedRealtime()+999L)/1000L).coerceAtLeast(0L)
-            if(remaining<=0L){
-                running=false
-                remaining=0L
-            }
-            onGoLive(slide())
-            if(running) delay(250L)
-        }
-    }
-    SectionCard{
-        Text(formatCountdown(remaining),fontSize=46.sp,fontWeight=FontWeight.Black)
-        Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(8.dp)){
-            OutlinedButton({if(!running){minutes=(minutes-1).coerceAtLeast(1);remaining=minutes*60L}},enabled=!running,modifier=Modifier.weight(1f)){Text("−1 MIN")}
-            OutlinedButton({if(!running){minutes=(minutes+1).coerceAtMost(180);remaining=minutes*60L}},enabled=!running,modifier=Modifier.weight(1f)){Text("+1 MIN")}
-        }
-        Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(8.dp)){
-            Button({if(running){remaining=((endElapsed-SystemClock.elapsedRealtime()+999L)/1000L).coerceAtLeast(0L);running=false}else{endElapsed=SystemClock.elapsedRealtime()+remaining*1000L;running=true;onGoLive(slide())}},Modifier.weight(1f)){Text(if(running)"PAUSE" else if(remaining<minutes*60L)"RESUME" else "START")}
-            OutlinedButton({running=false;remaining=minutes*60L;onPreview(slide())},Modifier.weight(1f)){Text("RESET")}
-        }
-        OutlinedButton({onPreview(slide())},Modifier.fillMaxWidth()){Text("PREVIEW COUNTDOWN")}
-    }
+ val remaining=CountdownStore.remainingSeconds;val running=CountdownStore.running;val configured=CountdownStore.configuredMinutes
+ SectionCard{
+  Text(CountdownStore.display(),fontSize=46.sp,fontWeight=FontWeight.Black)
+  Text(if(running)"Countdown continues while you use Bible, Listen, Service or Present." else "Timer stays available across every page.",fontSize=12.sp,color=KZMuted)
+  Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(8.dp)){
+   OutlinedButton({CountdownStore.setMinutes(configured-1L)},enabled=!running,modifier=Modifier.weight(1f)){Text("−1 MIN")}
+   OutlinedButton({CountdownStore.setMinutes(configured+1L)},enabled=!running,modifier=Modifier.weight(1f)){Text("+1 MIN")}
+  }
+  Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(8.dp)){
+   Button({if(running)CountdownStore.pause() else CountdownStore.startOrResume();onGoLive(CountdownStore.slide())},Modifier.weight(1f)){Text(if(running)"PAUSE" else if(remaining<configured*60L)"RESUME" else "START")}
+   OutlinedButton({CountdownStore.reset();onPreview(CountdownStore.slide())},Modifier.weight(1f)){Text("RESET")}
+  }
+  OutlinedButton({onPreview(CountdownStore.slide())},Modifier.fillMaxWidth()){Text("PREVIEW COUNTDOWN")}
+ }
 }
 @Composable fun LivePanel(preview:PresentationSlide?,live:PresentationSlide?,theme:BackgroundTheme?,textSize:Int,autoFit:Boolean,onTextSize:(Int)->Unit,onAutoFit:(Boolean)->Unit,setLive:(PresentationSlide?)->Unit,chooseBackground:()->Unit){PageHeading("Present","Preview first, then send confidently to the congregation display.");Text("PREVIEW",color=KZMuted);Surface(shape=RoundedCornerShape(20.dp),color=Color.Black){PresentationCanvas(preview,theme,Modifier.fillMaxWidth(),textSize,autoFit)};Button({setLive(preview)},enabled=preview!=null,modifier=Modifier.fillMaxWidth()){Text("GO LIVE")};SectionCard{Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.SpaceBetween){Text("TEXT SIZE",fontWeight=FontWeight.Bold);Row(verticalAlignment=Alignment.CenterVertically){OutlinedButton({onTextSize((textSize-2).coerceAtLeast(14))}){Text("−")};Text(" $textSize ",fontWeight=FontWeight.Bold);OutlinedButton({onTextSize((textSize+2).coerceAtMost(60))}){Text("+")}}};Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.SpaceBetween){Column{Text("AUTO FIT",fontWeight=FontWeight.Bold);Text("Shrink long passages automatically",fontSize=11.sp,color=KZMuted)};Switch(autoFit,onAutoFit)}};Text("CURRENT LIVE",color=KZMuted);Surface(shape=RoundedCornerShape(20.dp),color=Color.Black){PresentationCanvas(live,theme,Modifier.fillMaxWidth(),textSize,autoFit)};Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(8.dp)){Button({setLive(PresentationSlide(text="",kind="black"))},Modifier.weight(1f)){Text("BLACK")};OutlinedButton({setLive(null)},Modifier.weight(1f)){Text("CLEAR")};OutlinedButton({setLive(PresentationSlide(text="KING ZULU",kind="logo"))},Modifier.weight(1f)){Text("LOGO")}};OutlinedButton(chooseBackground,Modifier.fillMaxWidth()){Text("BACKGROUND FROM GALLERY")}}
