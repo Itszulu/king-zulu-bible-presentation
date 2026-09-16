@@ -60,11 +60,31 @@ fun KingZuluApp() {
                 }
             }
         },
-        bottomBar = { NavigationBar(containerColor = Color(0xFF101116)) { listOf("Bible", "Lyrics", "Timer", "Live").forEach { item -> NavigationBarItem(selected = tab == item, onClick = { tab = item }, icon = { Text(if (tab == item) "●" else "○") }, label = { Text(item) }) } } }
+        bottomBar = {
+            NavigationBar(containerColor = Color(0xFF101116)) {
+                listOf("Bible", "Listen", "Lyrics", "Timer", "Present").forEach { item ->
+                    NavigationBarItem(
+                        selected = tab == item,
+                        onClick = { tab = item },
+                        icon = { Text(if (tab == item) "●" else "○") },
+                        label = { Text(item, fontSize = 11.sp) }
+                    )
+                }
+            }
+        }
     ) { pad ->
         Column(Modifier.padding(pad).fillMaxSize().verticalScroll(rememberScrollState()).padding(18.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
             if (connectedName != null) Surface(Modifier.fillMaxWidth(), color = Color(0xFF15251F), shape = RoundedCornerShape(16.dp)) { Row(Modifier.padding(14.dp), verticalAlignment = Alignment.CenterVertically) { Text("📺", fontSize = 22.sp); Spacer(Modifier.width(10.dp)); Column { Text(connectedName, fontWeight = FontWeight.Bold); Text("Google Cast display connected", color = Color(0xFFA7C9B7), fontSize = 12.sp) } } }
-            when (tab) { "Bible" -> BiblePanel { preview = it; tab = "Live" }; "Lyrics" -> LyricsPanel { preview = it; tab = "Live" }; "Timer" -> TimerPanel { preview = it; tab = "Live" }; else -> LivePanel(preview, live, theme, { live = it }, { gallery.launch("image/*") }) }
+            when (tab) {
+                "Bible" -> BiblePanel { preview = it; tab = "Present" }
+                "Listen" -> AiListenPanel(
+                    onPreview = { preview = it; tab = "Present" },
+                    onGoLive = { slide -> preview = slide; live = slide; tab = "Present" }
+                )
+                "Lyrics" -> LyricsPanel { preview = it; tab = "Present" }
+                "Timer" -> TimerPanel { preview = it; tab = "Present" }
+                else -> LivePanel(preview, live, theme, { live = it }, { gallery.launch("image/*") })
+            }
         }
     }
 }
