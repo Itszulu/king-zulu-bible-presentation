@@ -18,12 +18,13 @@ import androidx.core.content.ContextCompat
 
 @Composable fun AiListenPanel(onPreview:(PresentationSlide)->Unit,onGoLive:(PresentationSlide)->Unit){
  val context=LocalContext.current;var listening by remember{mutableStateOf(false)};var transcript by remember{mutableStateOf("")};var status by remember{mutableStateOf("Ready to listen")};var detectedSlide by remember{mutableStateOf<PresentationSlide?>(null)}
- val controller=remember{AiListenController(context,{listening=it},{text->transcript=text
+ fun analyze(text:String){
    val explicit=SpokenBibleReferenceParser.parse(text)?.let{OfflineBibleRepository.get(it)}
    val verse=explicit?:OfflineBibleRepository.searchQuote(text)
-   detectedSlide=verse?.let{PresentationSlide(it.reference.display(),it.text,it.translation)}
+   if(verse!=null)detectedSlide=PresentationSlide(verse.reference.display(),verse.text,verse.translation)
    status=when{explicit!=null->"Scripture reference detected: ${explicit.reference.display()}";verse!=null->"Possible Scripture quote: ${verse.reference.display()}";else->"Listening for a reference or Scripture quotation…"}
- },{status=it})}
+ }
+ val controller=remember{AiListenController(context,{listening=it},{partial->transcript=partial;status="Listening…"},{finalText->transcript=finalText;analyze(finalText)},{status=it})}
  DisposableEffect(Unit){onDispose{controller.destroy()}}
  val permissionLauncher=rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()){granted->if(granted)controller.start()else status="Microphone permission is required for AI Listen"}
  fun startListening(){if(ContextCompat.checkSelfPermission(context,Manifest.permission.RECORD_AUDIO)==PackageManager.PERMISSION_GRANTED)controller.start()else permissionLauncher.launch(Manifest.permission.RECORD_AUDIO)}
