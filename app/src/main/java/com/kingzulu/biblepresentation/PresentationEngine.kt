@@ -12,14 +12,33 @@ data class OutputState(
 
 data class PreviewLiveState(
     val preview: PresentationSlide? = null,
-    val live: OutputState = OutputState()
+    val live: OutputState = OutputState(),
+    val history: List<OutputState> = emptyList()
 ) {
     fun preview(slide: PresentationSlide) = copy(preview = slide)
+
+    private fun push(next: OutputState): PreviewLiveState {
+        if (next == live) return this
+        return copy(live = next, history = (history + live).takeLast(30))
+    }
+
     fun goLive(): PreviewLiveState =
         if (live.locked || preview == null) this
-        else copy(live = live.copy(slide = preview, black = false))
-    fun clearSlide() = if (live.locked) this else copy(live = live.copy(slide = null))
-    fun black() = if (live.locked) this else copy(live = live.copy(black = true))
-    fun restore() = copy(live = live.copy(black = false))
+        else push(live.copy(slide = preview, black = false))
+
+    fun present(slide: PresentationSlide?): PreviewLiveState =
+        if (live.locked) this else push(live.copy(slide = slide, black = false))
+
+    fun clearSlide() = if (live.locked) this else push(live.copy(slide = null))
+    fun black() = if (live.locked) this else push(live.copy(black = true))
+    fun restore() = if (live.locked) this else push(live.copy(black = false))
+    fun logo() = present(PresentationSlide(text = "KING ZULU", kind = "logo"))
+
+    /** One-tap recovery after an accidental live action. */
+    fun previous(): PreviewLiveState {
+        if (live.locked || history.isEmpty()) return this
+        return copy(live = history.last(), history = history.dropLast(1))
+    }
+
     fun toggleLock() = copy(live = live.copy(locked = !live.locked))
 }
