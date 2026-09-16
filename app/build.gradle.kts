@@ -25,9 +25,11 @@ android {
 }
 
 dependencies {
-    val composeBom = platform("androidx.compose:compose-bom:2026.08.00")
+    // Keep Beta 1 on the stable Android 36 / AGP 8.13 toolchain.
+    // Newer 2026.08 Compose artifacts require API 37 and AGP 9.1.
+    val composeBom = platform("androidx.compose:compose-bom:2025.08.00")
     implementation(composeBom)
-    implementation("androidx.activity:activity-compose:1.13.0")
+    implementation("androidx.activity:activity-compose:1.10.1")
     implementation("androidx.compose.material3:material3")
     implementation("androidx.compose.ui:ui")
     implementation("androidx.compose.ui:ui-tooling-preview")
