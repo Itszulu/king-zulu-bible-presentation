@@ -77,7 +77,7 @@ fun AiListenPanel(
             if (detectedSlide == null) {
                 Text("No verse detected yet", color = Color(0xFF888A91))
             } else {
-                Text(detectedSlide!!.title, fontWeight = FontWeight.Black, fontSize = 21.sp)
+                Text(detectedSlide!!.reference, fontWeight = FontWeight.Black, fontSize = 21.sp)
                 Text(detectedSlide!!.text, fontSize = 17.sp)
                 Text(detectedSlide!!.translation, color = Color(0xFFA6A7AD), fontWeight = FontWeight.Bold)
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
