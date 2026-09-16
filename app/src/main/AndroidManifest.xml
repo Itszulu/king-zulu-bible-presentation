@@ -7,9 +7,8 @@
         android:allowBackup="true"
         android:label="King Zulu Bible Presentation"
         android:theme="@style/Theme.KingZulu">
-        <activity
-            android:name=".MainActivity"
-            android:exported="true">
+        <activity android:name=".MainActivity" android:exported="false" />
+        <activity android:name=".DisplayLauncherActivity" android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
