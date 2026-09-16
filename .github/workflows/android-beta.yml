@@ -10,57 +10,80 @@ permissions:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 30
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
       - name: Set up Java 17
         uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: '17'
-      - name: Set up Android SDK
-        uses: android-actions/setup-android@v3
-        with:
-          packages: 'platform-tools'
+
+      # GitHub's Ubuntu runner already contains the Android SDK and sdkmanager.
+      # Avoid setup-android downloading another command-line-tools archive: that
+      # download has intermittently failed with ECONNRESET before compilation.
+      - name: Verify Android SDK
+        run: |
+          echo "ANDROID_HOME=$ANDROID_HOME"
+          test -x "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
+          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --version
+
       - name: Install required Android SDK packages
-        run: sdkmanager "platforms;android-36" "build-tools;35.0.0"
+        run: |
+          yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses >/dev/null || true
+          for attempt in 1 2 3; do
+            "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "platform-tools" "platforms;android-36" "build-tools;35.0.0" && break
+            if [ "$attempt" -eq 3 ]; then exit 1; fi
+            sleep $((attempt * 10))
+          done
+
       - name: Bundle and validate complete public-domain KJV Bible
         run: |
           mkdir -p app/src/main/assets/bibles
-          curl --fail --location --retry 3 \
+          curl --fail --location --retry 3 --retry-all-errors \
             https://raw.githubusercontent.com/midvash/bible-data/main/versions/en/kjv/kjv.json \
             -o app/src/main/assets/bibles/kjv.json
           test -s app/src/main/assets/bibles/kjv.json
           python3 - <<'PY'
           import json
           p='app/src/main/assets/bibles/kjv.json'
-          d=json.load(open(p,encoding='utf-8'))
-          if len(d.get('books',[])) != 66: raise SystemExit('KJV validation failed')
+          with open(p, encoding='utf-8') as f:
+              d=json.load(f)
+          if len(d.get('books',[])) != 66:
+              raise SystemExit('KJV validation failed: expected 66 books')
           chapters=sum(len(b.get('chapters',[])) for b in d['books'])
           verses=sum(len(c.get('verses',[])) for b in d['books'] for c in b.get('chapters',[]))
-          if chapters != 1189 or verses != 31102: raise SystemExit(f'KJV validation failed: {chapters} chapters, {verses} verses')
+          if chapters != 1189 or verses != 31102:
+              raise SystemExit(f'KJV validation failed: {chapters} chapters, {verses} verses')
           print(f'KJV VERIFIED: 66 books, {chapters} chapters, {verses} verses')
           PY
+
       - name: Set up Gradle 8.13
         uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.13'
-      - name: Verify YouVersion credential is configured
+
+      - name: Report optional provider configuration
         env:
           YOUVERSION_APP_KEY: ${{ secrets.YOUVERSION_APP_KEY }}
         run: |
-          if [ -z "$YOUVERSION_APP_KEY" ]; then
-            echo "YOUVERSION_APP_KEY GitHub Actions secret is missing. NIV/online translations cannot be built."
-            exit 1
+          if [ -n "$YOUVERSION_APP_KEY" ]; then
+            echo "YouVersion provider: configured"
+          else
+            echo "YouVersion provider: not configured; building offline-first app without it"
           fi
-      - name: Build debug APK with YouVersion support
+
+      - name: Compile, lint and unit test
         env:
           YOUVERSION_APP_KEY: ${{ secrets.YOUVERSION_APP_KEY }}
-        run: gradle --no-daemon :app:assembleDebug --stacktrace -PYOUVERSION_APP_KEY="$YOUVERSION_APP_KEY"
+        run: gradle --no-daemon :app:assembleDebug :app:testDebugUnitTest :app:lintDebug --stacktrace -PYOUVERSION_APP_KEY="$YOUVERSION_APP_KEY"
+
       - name: Rename Beta APK
         run: cp app/build/outputs/apk/debug/app-debug.apk KingZulu-Beta1.apk
+
       - name: Upload Beta APK
         uses: actions/upload-artifact@v4
         with:
