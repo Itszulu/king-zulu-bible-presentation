@@ -22,23 +22,20 @@ jobs:
           distribution: temurin
           java-version: '17'
 
-      # GitHub's Ubuntu runner already contains the Android SDK and sdkmanager.
-      # Avoid setup-android downloading another command-line-tools archive: that
-      # download has intermittently failed with ECONNRESET before compilation.
-      - name: Verify Android SDK
+      # Hosted runners already carry Android SDK packages. Do not call sdkmanager
+      # on every build: remote repository metadata failures were blocking the app
+      # before Gradle could compile a single source file.
+      - name: Verify required Android SDK
         run: |
           echo "ANDROID_HOME=$ANDROID_HOME"
-          test -x "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
-          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --version
-
-      - name: Install required Android SDK packages
-        run: |
-          yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses >/dev/null || true
-          for attempt in 1 2 3; do
-            "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "platform-tools" "platforms;android-36" "build-tools;35.0.0" && break
-            if [ "$attempt" -eq 3 ]; then exit 1; fi
-            sleep $((attempt * 10))
-          done
+          test -d "$ANDROID_HOME/platforms/android-36"
+          if [ -d "$ANDROID_HOME/build-tools/35.0.0" ]; then
+            echo "Android 36 platform + build-tools 35.0.0 ready"
+          else
+            echo "Installed build tools:"
+            ls -1 "$ANDROID_HOME/build-tools"
+            test -n "$(ls -A "$ANDROID_HOME/build-tools")"
+          fi
 
       - name: Bundle and validate complete public-domain KJV Bible
         run: |
