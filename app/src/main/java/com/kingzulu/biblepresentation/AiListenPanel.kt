@@ -24,15 +24,35 @@ import kotlinx.coroutines.withContext
  val currentAutoLive by rememberUpdatedState(autoLive);val currentPreview by rememberUpdatedState(onPreview);val currentGoLive by rememberUpdatedState(onGoLive)
  fun setAutoLive(enabled:Boolean){autoLive=enabled;OperatorPreferences.setAiAutoLive(context,enabled)}
  fun slide(v:Verse)=PresentationSlide(v.reference.display(),v.text,v.translation)
- val analyzeLatest by rememberUpdatedState<(String)->Unit>({text->val id=++analysisId;status="Searching Scripture…";scope.launch{val result=withContext(Dispatchers.Default){val explicit=SpokenBibleReferenceParser.parse(text)?.let{OfflineBibleRepository.get(it)};val matches=if(explicit==null)OfflineBibleRepository.searchQuoteMatches(text,5)else emptyList();Pair(explicit,matches)};if(id!=analysisId)return@launch;val(explicit,matches)=result;explicitSlide=explicit?.let(::slide);candidates=matches
-   if(explicit!=null){val s=slide(explicit);if(currentAutoLive){currentPreview(s);currentGoLive(s);status="LIVE • ${s.reference}"}else status="Scripture reference detected: ${s.reference}";return@launch}
-   val best=matches.firstOrNull();val second=matches.getOrNull(1);val decisive=best!=null&&best.score>=0.78&&(second==null||best.score-second.score>=0.16)
-   if(best==null){status="No confident match yet — keep speaking"}
-   else if(currentAutoLive&&decisive){val s=slide(best.verse);currentPreview(s);currentGoLive(s);status="LIVE • ${s.reference}"}
-   else if(matches.size>1){status="${matches.size} possible matches — choose the intended Scripture"}
-   else status="Possible Scripture match found"
- }})
- val controller=remember(context){AiListenController(context,{listening=it},{partial->transcript=partial;status="Listening…"},{finalText->transcript=finalText;analyzeLatest(finalText)},{status=it})}
+ val analyzeCandidates by rememberUpdatedState<(List<String>)->Unit>({alternatives->
+   if(alternatives.isEmpty())return@rememberUpdatedState
+   val id=++analysisId;transcript=alternatives.first();status="Searching Scripture…"
+   scope.launch{
+     val result=withContext(Dispatchers.Default){
+       // A spoken exact reference from any recognition alternative outranks quote inference.
+       val explicit=alternatives.asSequence().mapNotNull{SpokenBibleReferenceParser.parse(it)?.let{r->OfflineBibleRepository.get(r)}}.firstOrNull()
+       val ranked=if(explicit==null){
+         alternatives.flatMapIndexed{candidateIndex,text->
+           // Recognition rank is only a small prior. Scripture phrase/context score remains dominant.
+           val recognizerPrior=(8-candidateIndex.coerceAtMost(7))*.012
+           OfflineBibleRepository.searchQuoteMatches(text,8).map{it.copy(score=it.score+recognizerPrior)}
+         }.groupBy{it.verse.reference.display()+"|"+it.verse.translation}
+          .mapNotNull{(_,sameVerse)->sameVerse.maxByOrNull{it.score}}
+          .sortedByDescending{it.score}.take(5)
+       }else emptyList()
+       Pair(explicit,ranked)
+     }
+     if(id!=analysisId)return@launch
+     val(explicit,matches)=result;explicitSlide=explicit?.let(::slide);candidates=matches
+     if(explicit!=null){val s=slide(explicit);if(currentAutoLive){currentGoLive(s);status="LIVE • ${s.reference}"}else status="Scripture reference detected: ${s.reference}";return@launch}
+     val best=matches.firstOrNull();val second=matches.getOrNull(1);val decisive=best!=null&&best.score>=0.82&&(second==null||best.score-second.score>=0.18)
+     if(best==null)status="No confident match yet — keep speaking"
+     else if(currentAutoLive&&decisive){val s=slide(best.verse);currentGoLive(s);status="LIVE • ${s.reference}"}
+     else if(matches.size>1)status="${matches.size} possible matches — choose the intended Scripture"
+     else status="Possible Scripture match found"
+   }
+ })
+ val controller=remember(context){AiListenController(context,{listening=it},{partial->transcript=partial;status="Listening…"},{finalText->transcript=finalText},{status=it},{alts->analyzeCandidates(alts)})}
  DisposableEffect(controller){onDispose{controller.destroy()}}
  val permissionLauncher=rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()){granted->if(granted)controller.start()else status="Microphone permission is required for AI Listen"}
  fun startListening(){if(ContextCompat.checkSelfPermission(context,Manifest.permission.RECORD_AUDIO)==PackageManager.PERMISSION_GRANTED)controller.start()else permissionLauncher.launch(Manifest.permission.RECORD_AUDIO)}
