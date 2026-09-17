@@ -16,98 +16,26 @@ import androidx.mediarouter.app.MediaRouteChooserDialog
 import com.google.android.gms.cast.framework.CastContext
 import kotlinx.coroutines.delay
 
-private val DisplayPurple=Color(0xFF7B61FF)
-private val DisplaySurface=Color(0xFF151518)
-private val DisplaySurface2=Color(0xFF202025)
-private val DisplayMuted=Color(0xFFAAAAB2)
-private val DisplayGreen=Color(0xFF66D19E)
-private val DisplayAmber=Color(0xFFFFC66D)
+private val DisplayPurple=Color(0xFF7B61FF);private val DisplaySurface=Color(0xFF151518);private val DisplaySurface2=Color(0xFF202025);private val DisplayMuted=Color(0xFFAAAAB2);private val DisplayGreen=Color(0xFF66D19E);private val DisplayAmber=Color(0xFFFFC66D)
 
-@Composable
-fun DisplaysPanel(sharedWiredBridge: WiredDisplayBridge? = null) {
-    val context=LocalContext.current; val activity=context as? Activity
-    val discovery=remember{KingZuluDisplayDiscovery(context)}; val castBridge=remember{GoogleCastBridge(context)}
-    val localWiredBridge=remember(sharedWiredBridge){if(sharedWiredBridge==null) WiredDisplayBridge(context) else null}
-    val wiredBridge=sharedWiredBridge ?: localWiredBridge!!
-    val devices=remember{mutableStateListOf<DiscoveredDisplay>()}; var scanning by remember{mutableStateOf(false)}
-    var inspected by remember{mutableStateOf<DiscoveredDisplay?>(null)}
-    var castDevice by remember{mutableStateOf(castBridge.currentDeviceName())}; var wired by remember{mutableStateOf(wiredBridge.available())}; var wiredActive by remember{mutableStateOf<Int?>(null)}
-
-    LaunchedEffect(scanning){if(scanning){delay(3500);discovery.stop();scanning=false}}
-    fun scanLocal(){discovery.stop();devices.clear();inspected=null;scanning=true;discovery.start{d->if(devices.none{it.host==d.host&&it.port==d.port})devices.add(d)}}
-    fun showCastPicker(){
-        if(activity==null)return
-        runCatching{
-            val selector=CastContext.getSharedInstance(context).mergedSelector ?: return@runCatching
-            MediaRouteChooserDialog(activity).apply{
-                routeSelector=selector
-                setTitle("Choose a display")
-                setOnDismissListener{castDevice=castBridge.currentDeviceName()}
-                show()
-            }
-        }
-    }
-    DisposableEffect(Unit){onDispose{discovery.stop();if(sharedWiredBridge==null)wiredBridge.dismiss()}}
-
-    Column(verticalArrangement=Arrangement.spacedBy(14.dp)){
-        Text("Displays",fontSize=32.sp,fontWeight=FontWeight.Black)
-        Text("Choose how King Zulu sends LIVE content to the congregation screen.",color=DisplayMuted,fontSize=14.sp)
-        DisplayStatusCard(wiredActive!=null,castDevice)
-
-        DisplayMethodCard("Wired display","USB-C → HDMI","Lowest latency · works without Wi-Fi"){
-            Button({wired=wiredBridge.available()},Modifier.fillMaxWidth()){Text("DETECT HDMI DISPLAY")}
-            if(wired.isEmpty())Text("Connect a supported HDMI adapter, then detect again.",color=DisplayMuted,fontSize=12.sp)
-            wired.forEach{d->OutlinedButton({if(wiredBridge.show(d.id))wiredActive=d.id},Modifier.fillMaxWidth()){Text(if(wiredActive==d.id)"● LIVE OUTPUT · ${d.name}" else "USE ${d.name}")}}
-            if(wiredActive!=null)TextButton({wiredBridge.dismiss();wiredActive=null}){Text("Disconnect wired display")}
-        }
-
-        DisplayMethodCard("Wireless display","Google Cast / Google TV","Chromecast and compatible Android/Google TVs"){
-            Button({showCastPicker()},Modifier.fillMaxWidth()){Text("FIND CAST TVs")}
-            Text(if(castDevice==null)"No Cast display connected" else "● Connected · $castDevice",color=if(castDevice==null)DisplayMuted else DisplayGreen,fontSize=12.sp)
-        }
-
-        DisplayMethodCard("Local TV discovery","Same Wi-Fi","Find TVs advertising SSDP/DIAL/VIDAA services on your network"){
-            OutlinedButton({scanLocal()},Modifier.fillMaxWidth(),enabled=!scanning){Text(if(scanning)"SEARCHING…" else "SCAN LOCAL NETWORK")}
-            if(scanning)LinearProgressIndicator(Modifier.fillMaxWidth())
-            devices.forEach{d->
-                OutlinedButton({inspected=d},Modifier.fillMaxWidth()){
-                    Text("FOUND · ${d.name} · ${d.protocol}")
-                }
-            }
-            if(!scanning&&devices.isEmpty())Text("No local TVs found in the last scan.",color=DisplayMuted,fontSize=12.sp)
-            inspected?.let{d->
-                Surface(Modifier.fillMaxWidth(),color=Color(0xFF2A2417),shape=RoundedCornerShape(14.dp)){
-                    Column(Modifier.padding(12.dp),verticalArrangement=Arrangement.spacedBy(5.dp)){
-                        Text("DEVICE DISCOVERED — NOT CONNECTED",fontWeight=FontWeight.Black,fontSize=11.sp,color=DisplayAmber)
-                        Text(d.name,fontWeight=FontWeight.Bold)
-                        Text("${d.protocol} · ${d.host}",fontSize=11.sp,color=DisplayMuted)
-                        Text("King Zulu found this device on the LAN, but no compatible presentation receiver has been established. It will not be marked Display Ready or receive GO LIVE content.",fontSize=12.sp,color=DisplayMuted)
-                    }
-                }
-            }
-        }
-
-        DisplayMethodCard("Browser display","Universal fallback","For smart TVs with a web browser"){
-            Text("A short receiver address/code will appear here when the browser transport is enabled.",color=DisplayMuted,fontSize=12.sp)
-            OutlinedButton({},enabled=false,modifier=Modifier.fillMaxWidth()){Text("START BROWSER DISPLAY · IN PROGRESS")}
-        }
-        Text("DISPLAY READY now means an actual output session exists. Merely discovering a TV on the network is not treated as a connection.",color=DisplayMuted,fontSize=11.sp)
-    }
+@Composable fun DisplaysPanel(sharedWiredBridge:WiredDisplayBridge?=null,browserReceiver:BrowserReceiverServer?=null){
+ val context=LocalContext.current;val activity=context as? Activity;val discovery=remember{KingZuluDisplayDiscovery(context)};val castBridge=remember{GoogleCastBridge(context)};val localWiredBridge=remember(sharedWiredBridge){if(sharedWiredBridge==null)WiredDisplayBridge(context)else null};val wiredBridge=sharedWiredBridge?:localWiredBridge!!;val localBrowser=remember(browserReceiver){if(browserReceiver==null)BrowserReceiverServer(context)else null};val browser=browserReceiver?:localBrowser!!
+ val devices=remember{mutableStateListOf<DiscoveredDisplay>()};var scanning by remember{mutableStateOf(false)};var inspected by remember{mutableStateOf<DiscoveredDisplay?>(null)};var castDevice by remember{mutableStateOf(castBridge.currentDeviceName())};var wired by remember{mutableStateOf(wiredBridge.available())};var wiredActive by remember{mutableStateOf<Int?>(null)};var browserAddress by remember{mutableStateOf<String?>(null)}
+ LaunchedEffect(scanning){if(scanning){delay(3500);discovery.stop();scanning=false}}
+ fun scanLocal(){discovery.stop();devices.clear();inspected=null;scanning=true;discovery.start{d->if(devices.none{it.host==d.host&&it.port==d.port})devices.add(d)}}
+ fun showCastPicker(){if(activity==null)return;runCatching{val selector=CastContext.getSharedInstance(context).mergedSelector?:return@runCatching;MediaRouteChooserDialog(activity).apply{routeSelector=selector;setTitle("Choose a display");setOnDismissListener{castDevice=castBridge.currentDeviceName()};show()}}}
+ DisposableEffect(Unit){onDispose{discovery.stop();if(sharedWiredBridge==null)wiredBridge.dismiss();if(browserReceiver==null)browser.stop()}}
+ Column(verticalArrangement=Arrangement.spacedBy(14.dp)){
+  Text("Displays",fontSize=32.sp,fontWeight=FontWeight.Black);Text("Choose how King Zulu sends LIVE content to the congregation screen.",color=DisplayMuted,fontSize=14.sp);DisplayStatusCard(wiredActive!=null,castDevice,browserAddress)
+  DisplayMethodCard("Wired display","USB-C → HDMI","Lowest latency · works without Wi-Fi"){Button({wired=wiredBridge.available()},Modifier.fillMaxWidth()){Text("DETECT HDMI DISPLAY")};if(wired.isEmpty())Text("Connect a supported HDMI adapter, then detect again.",color=DisplayMuted,fontSize=12.sp);wired.forEach{d->OutlinedButton({if(wiredBridge.show(d.id))wiredActive=d.id},Modifier.fillMaxWidth()){Text(if(wiredActive==d.id)"● LIVE OUTPUT · ${d.name}" else "USE ${d.name}")}};if(wiredActive!=null)TextButton({wiredBridge.dismiss();wiredActive=null}){Text("Disconnect wired display")}}
+  DisplayMethodCard("Wireless display","Google Cast / Google TV","Chromecast and compatible Android/Google TVs"){Button({showCastPicker()},Modifier.fillMaxWidth()){Text("FIND CAST TVs")};Text(if(castDevice==null)"No Cast display connected" else "● Connected · $castDevice",color=if(castDevice==null)DisplayMuted else DisplayGreen,fontSize=12.sp)}
+  DisplayMethodCard("Local TV discovery","Same Wi-Fi","Find TVs advertising SSDP/DIAL/VIDAA services on your network"){OutlinedButton({scanLocal()},Modifier.fillMaxWidth(),enabled=!scanning){Text(if(scanning)"SEARCHING…" else "SCAN LOCAL NETWORK")};if(scanning)LinearProgressIndicator(Modifier.fillMaxWidth());devices.forEach{d->OutlinedButton({inspected=d},Modifier.fillMaxWidth()){Text("FOUND · ${d.name} · ${d.protocol}")}};if(!scanning&&devices.isEmpty())Text("No local TVs found in the last scan.",color=DisplayMuted,fontSize=12.sp);inspected?.let{d->Surface(Modifier.fillMaxWidth(),color=Color(0xFF2A2417),shape=RoundedCornerShape(14.dp)){Column(Modifier.padding(12.dp),verticalArrangement=Arrangement.spacedBy(5.dp)){Text("DEVICE DISCOVERED — NOT CONNECTED",fontWeight=FontWeight.Black,fontSize=11.sp,color=DisplayAmber);Text(d.name,fontWeight=FontWeight.Bold);Text("${d.protocol} · ${d.host}",fontSize=11.sp,color=DisplayMuted);Text("Discovery confirms the TV is on the network; use a supported transport below to present.",fontSize=12.sp,color=DisplayMuted)}}}}
+  DisplayMethodCard("Browser display","Universal same-Wi-Fi receiver","Works without mirroring when the TV has a modern web browser"){
+   if(browserAddress==null){Button({browserAddress=browser.start()},Modifier.fillMaxWidth()){Text("START BROWSER DISPLAY")};Text("King Zulu will host a private LAN receiver on this phone.",color=DisplayMuted,fontSize=12.sp)}else{Text("RECEIVER RUNNING",fontWeight=FontWeight.Black,color=DisplayGreen,fontSize=11.sp);Text(browserAddress!!,fontSize=22.sp,fontWeight=FontWeight.Black);Text("On the TV, open its web browser and enter this address exactly. Keep the TV on that page. GO LIVE, BLACK and CLEAR will then update the receiver without mirroring your phone.",color=DisplayMuted,fontSize=12.sp);OutlinedButton({browser.stop();browserAddress=null},Modifier.fillMaxWidth()){Text("STOP BROWSER DISPLAY")}}
+  }
+  Text("A discovered TV is not called connected until an actual output transport exists.",color=DisplayMuted,fontSize=11.sp)
+ }
 }
 
-@Composable private fun DisplayStatusCard(wired:Boolean,cast:String?){
-    val connected=wired||cast!=null
-    Surface(Modifier.fillMaxWidth(),color=if(connected)Color(0xFF14231D) else DisplaySurface2,shape=RoundedCornerShape(18.dp)){
-        Row(Modifier.padding(16.dp),verticalAlignment=Alignment.CenterVertically){
-            Text(if(connected)"●" else "○",color=if(connected)DisplayGreen else DisplayMuted,fontSize=18.sp);Spacer(Modifier.width(10.dp));Column{Text(if(connected)"DISPLAY READY" else "NO DISPLAY CONNECTED",fontWeight=FontWeight.Black,fontSize=13.sp);Text(when{wired->"Wired HDMI output active";cast!=null->"Google Cast · $cast";else->"No verified audience output session"},color=DisplayMuted,fontSize=12.sp)}
-        }
-    }
-}
-
-@Composable private fun DisplayMethodCard(title:String,eyebrow:String,subtitle:String,content:@Composable ColumnScope.()->Unit){
-    Surface(Modifier.fillMaxWidth(),color=DisplaySurface,shape=RoundedCornerShape(22.dp)){
-        Column(Modifier.padding(18.dp),verticalArrangement=Arrangement.spacedBy(10.dp)){
-            Text(eyebrow.uppercase(),color=DisplayPurple,fontWeight=FontWeight.Bold,fontSize=10.sp);Text(title,fontWeight=FontWeight.Black,fontSize=20.sp);Text(subtitle,color=DisplayMuted,fontSize=12.sp);content()
-        }
-    }
-}
+@Composable private fun DisplayStatusCard(wired:Boolean,cast:String?,browser:String?){val connected=wired||cast!=null||browser!=null;Surface(Modifier.fillMaxWidth(),color=if(connected)Color(0xFF14231D)else DisplaySurface2,shape=RoundedCornerShape(18.dp)){Row(Modifier.padding(16.dp),verticalAlignment=Alignment.CenterVertically){Text(if(connected)"●"else"○",color=if(connected)DisplayGreen else DisplayMuted,fontSize=18.sp);Spacer(Modifier.width(10.dp));Column{Text(if(connected)"OUTPUT ACTIVE"else"NO OUTPUT ACTIVE",fontWeight=FontWeight.Black,fontSize=13.sp);Text(when{wired->"Wired HDMI presentation active";cast!=null->"Google Cast · $cast";browser!=null->"Browser receiver hosted · waiting/serving at $browser";else->"No audience output transport running"},color=DisplayMuted,fontSize=12.sp)}}}}
+@Composable private fun DisplayMethodCard(title:String,eyebrow:String,subtitle:String,content:@Composable ColumnScope.()->Unit){Surface(Modifier.fillMaxWidth(),color=DisplaySurface,shape=RoundedCornerShape(22.dp)){Column(Modifier.padding(18.dp),verticalArrangement=Arrangement.spacedBy(10.dp)){Text(eyebrow.uppercase(),color=DisplayPurple,fontWeight=FontWeight.Bold,fontSize=10.sp);Text(title,fontWeight=FontWeight.Black,fontSize=20.sp);Text(subtitle,color=DisplayMuted,fontSize=12.sp);content()}}}
