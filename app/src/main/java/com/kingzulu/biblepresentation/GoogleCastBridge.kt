@@ -10,7 +10,6 @@ import android.view.Gravity
 import android.widget.FrameLayout
 import android.widget.LinearLayout
 import android.widget.TextView
-import com.google.android.gms.cast.Cast
 import com.google.android.gms.cast.framework.CastContext
 import com.google.android.gms.cast.framework.CastOptions
 import com.google.android.gms.cast.framework.OptionsProvider
@@ -18,7 +17,7 @@ import com.google.android.gms.cast.framework.SessionProvider
 import org.json.JSONObject
 
 private const val KING_ZULU_CAST_NAMESPACE = "urn:x-cast:com.kingzulu.presentation"
-private const val DEFAULT_MEDIA_RECEIVER_ID = "CC1AD845"
+private const val KING_ZULU_RECEIVER_ID = "86654938"
 
 /** Google Cast is a real session transport. SSDP/DIAL discovery is deliberately not used here. */
 class GoogleCastBridge(context: Context) {
@@ -26,11 +25,6 @@ class GoogleCastBridge(context: Context) {
     fun hasActiveSession(): Boolean = castContext.sessionManager.currentCastSession?.isConnected == true
     fun currentDeviceName(): String? = castContext.sessionManager.currentCastSession?.takeIf { it.isConnected }?.castDevice?.friendlyName
 
-    /**
-     * Sends King Zulu presentation state only when a receiver supports our namespace.
-     * With the default receiver this safely returns false; a registered King Zulu Web Receiver
-     * application ID can be supplied at build time before custom presentation messaging is enabled.
-     */
     fun publish(slide: PresentationSlide?, black: Boolean, theme: BackgroundTheme?, textSize: Int, autoFit: Boolean): Boolean {
         val session = castContext.sessionManager.currentCastSession ?: return false
         if (!session.isConnected) return false
@@ -53,12 +47,8 @@ class GoogleCastBridge(context: Context) {
 }
 
 class KingZuluCastOptionsProvider : OptionsProvider {
-    override fun getCastOptions(context: Context): CastOptions {
-        // CC1AD845 is Google's Default Media Receiver. It provides standards-compliant discovery
-        // and session establishment now. King Zulu's own registered receiver ID replaces this
-        // when the custom Web Receiver is deployed; never reuse another application's receiver ID.
-        return CastOptions.Builder().setReceiverApplicationId(DEFAULT_MEDIA_RECEIVER_ID).build()
-    }
+    override fun getCastOptions(context: Context): CastOptions =
+        CastOptions.Builder().setReceiverApplicationId(KING_ZULU_RECEIVER_ID).build()
     override fun getAdditionalSessionProviders(context: Context): MutableList<SessionProvider>? = null
 }
 
