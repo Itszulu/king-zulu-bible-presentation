@@ -21,10 +21,11 @@ object AiScriptureEngine {
         val base = current ?: return null
         val t = raw.lowercase().trim().replace(Regex("[^a-z0-9 ]"), " ").replace(Regex("\\s+"), " ")
         val ref = base.reference
+        val currentVerse = ref.verseStart ?: return null
         fun verse(n: Int): Verse? = if (n > 0) OfflineBibleRepository.get(BibleReference(ref.book, ref.chapter, n)) else null
 
-        if (t.matches(Regex(".*\\b(next verse|continue|go forward)\\b.*"))) return verse(ref.verseStart + 1)
-        if (t.matches(Regex(".*\\b(previous verse|last verse|go back one verse)\\b.*"))) return verse(ref.verseStart - 1)
+        if (t.matches(Regex(".*\\b(next verse|continue|go forward)\\b.*"))) return verse(currentVerse + 1)
+        if (t.matches(Regex(".*\\b(previous verse|last verse|go back one verse)\\b.*"))) return verse(currentVerse - 1)
         if (t.matches(Regex(".*\\b(repeat|repeat that|same verse|repeat verse)\\b.*"))) return base
 
         Regex("(?:go (?:back )?to )?verse ([0-9]{1,3})").find(t)?.groupValues?.getOrNull(1)?.toIntOrNull()?.let { return verse(it) }
