@@ -11,13 +11,7 @@ import android.widget.FrameLayout
 import android.widget.LinearLayout
 import android.widget.TextView
 import com.google.android.gms.cast.framework.CastContext
-import com.google.android.gms.cast.framework.CastOptions
-import com.google.android.gms.cast.framework.OptionsProvider
-import com.google.android.gms.cast.framework.SessionProvider
 import org.json.JSONObject
-
-private const val KING_ZULU_CAST_NAMESPACE = "urn:x-cast:com.kingzulu.presentation"
-private const val KING_ZULU_RECEIVER_ID = "86654938"
 
 /** Google Cast is a real session transport. SSDP/DIAL discovery is deliberately not used here. */
 class GoogleCastBridge(context: Context) {
@@ -40,16 +34,10 @@ class GoogleCastBridge(context: Context) {
             put("overlay", theme?.overlay ?: .38f)
         }.toString()
         return runCatching {
-            session.sendMessage(KING_ZULU_CAST_NAMESPACE, payload)
+            session.sendMessage(CastOptionsProvider.PRESENTATION_NAMESPACE, payload)
             true
         }.getOrDefault(false)
     }
-}
-
-class KingZuluCastOptionsProvider : OptionsProvider {
-    override fun getCastOptions(context: Context): CastOptions =
-        CastOptions.Builder().setReceiverApplicationId(KING_ZULU_RECEIVER_ID).build()
-    override fun getAdditionalSessionProviders(context: Context): MutableList<SessionProvider>? = null
 }
 
 data class WiredDisplay(val id: Int, val name: String)
