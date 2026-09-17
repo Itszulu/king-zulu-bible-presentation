@@ -9,16 +9,45 @@ android {
     compileSdk = 36
 
     defaultConfig {
-        // Keep this ID permanently stable so new APKs update the installed King Zulu app.
+        // PERMANENT ID: never change this when renaming/rebranding King Zulu.
+        // Android uses applicationId + signing identity to decide whether an APK is an update.
         applicationId = "com.kingzulu.biblepresentation"
         minSdk = 26
         targetSdk = 36
-        versionCode = 2
-        versionName = "1.0.1"
+        versionCode = 3
+        versionName = "1.0.2-beta"
 
-        // Supply with -PYOUVERSION_APP_KEY=... locally/CI. Never commit the credential.
         val yvKey = providers.gradleProperty("YOUVERSION_APP_KEY").orElse("")
         buildConfigField("String", "YOUVERSION_APP_KEY", "\"${yvKey.get()}\"")
+    }
+
+    // CI can provide one permanent King Zulu keystore through environment variables.
+    // The key itself is NEVER committed to GitHub. Local/debug builds continue to work
+    // without these values, while distributable beta builds can use the stable identity.
+    val releaseStoreFile = System.getenv("KINGZULU_KEYSTORE_PATH")
+    val releaseStorePassword = System.getenv("KINGZULU_KEYSTORE_PASSWORD")
+    val releaseKeyAlias = System.getenv("KINGZULU_KEY_ALIAS")
+    val releaseKeyPassword = System.getenv("KINGZULU_KEY_PASSWORD")
+    val hasReleaseSigning = !releaseStoreFile.isNullOrBlank() &&
+        !releaseStorePassword.isNullOrBlank() && !releaseKeyAlias.isNullOrBlank() &&
+        !releaseKeyPassword.isNullOrBlank()
+
+    signingConfigs {
+        if (hasReleaseSigning) {
+            create("kingZuluPermanent") {
+                storeFile = file(releaseStoreFile!!)
+                storePassword = releaseStorePassword
+                keyAlias = releaseKeyAlias
+                keyPassword = releaseKeyPassword
+            }
+        }
+    }
+
+    buildTypes {
+        release {
+            isMinifyEnabled = false
+            if (hasReleaseSigning) signingConfig = signingConfigs.getByName("kingZuluPermanent")
+        }
     }
 
     buildFeatures {
