@@ -10,17 +10,21 @@ data class ScriptureReadingState(
     val endVerse: Int,
     val currentVerse: Int,
     val verses: List<Verse>,
-    val mode: ScriptureFoldbackMode = ScriptureFoldbackMode.CURRENT_NEXT
+    val mode: ScriptureFoldbackMode = ScriptureFoldbackMode.CURRENT_NEXT,
+    val declaredStartVerse: Int = startVerse,
+    val declaredEndVerse: Int = endVerse
 ) {
     val current: Verse? get() = verses.firstOrNull { it.reference.verseStart == currentVerse }
     val next: Verse? get() = verses.firstOrNull { it.reference.verseStart == currentVerse + 1 }
     val remaining: List<Verse> get() = verses.filter { (it.reference.verseStart ?: 0) >= currentVerse }
+    val insideDeclaredRange: Boolean get() = currentVerse in declaredStartVerse..declaredEndVerse
+    val atDeclaredEnd: Boolean get() = insideDeclaredRange && currentVerse == declaredEndVerse
 }
 
 /**
- * Local reading-range state. The audience sees only current; foldback may expose current+next
- * or the remaining passage. Advancement is driven by explicit commands or confident speech match,
- * never by elapsed time/silence.
+ * Local reading state for the active book/chapter. A declared range controls automatic reading
+ * progression, but explicit contextual commands may jump anywhere in the same chapter.
+ * The audience sees only current; foldback may expose current+next or the remaining passage.
  */
 object ScriptureReadingSession {
     @Volatile private var state: ScriptureReadingState? = null
@@ -32,35 +36,55 @@ object ScriptureReadingSession {
         val start = reference.verseStart ?: return null
         val end = reference.verseEnd ?: start
         if (end < start) return null
-        val chapter = OfflineBibleRepository.chapter(reference.book, reference.chapter, translation)
-        val range = chapter.filter { (it.reference.verseStart ?: 0) in start..end }
-        if (range.isEmpty()) return null
-        return ScriptureReadingState(reference.book, reference.chapter, start, end, start, range).also { state = it }
+        val chapterVerses = OfflineBibleRepository.chapter(reference.book, reference.chapter, translation)
+        if (chapterVerses.none { (it.reference.verseStart ?: 0) == start }) return null
+        return ScriptureReadingState(
+            book = reference.book,
+            chapter = reference.chapter,
+            startVerse = start,
+            endVerse = end,
+            currentVerse = start,
+            verses = chapterVerses,
+            declaredStartVerse = start,
+            declaredEndVerse = end
+        ).also { state = it }
     }
 
     fun setMode(mode: ScriptureFoldbackMode) { state = state?.copy(mode = mode) }
 
+    /** Explicit verse navigation inherits the active book/chapter and may leave the declared range. */
     fun goTo(verseNumber: Int): Verse? {
         val s = state ?: return null
-        if (verseNumber !in s.startVerse..s.endVerse) return null
         val target = s.verses.firstOrNull { it.reference.verseStart == verseNumber } ?: return null
         state = s.copy(currentVerse = verseNumber)
         AiScriptureEngine.remember(target)
         return target
     }
 
-    fun next(): Verse? = state?.let { goTo(it.currentVerse + 1) }
+    /**
+     * NEXT/PREVIOUS are contextual chapter navigation. At the declared range endpoint, NEXT does
+     * not silently escape the reading; an explicit verse command can still jump elsewhere.
+     */
+    fun next(): Verse? {
+        val s = state ?: return null
+        if (s.atDeclaredEnd) return null
+        return goTo(s.currentVerse + 1)
+    }
     fun previous(): Verse? = state?.let { goTo(it.currentVerse - 1) }
 
     /**
-     * Follow speech inside the declared range. Prefer upcoming verses, permit skips, and require
-     * a strong wording match. This deliberately does not advance on silence or a timer.
+     * Follow spoken Bible wording only inside the declared range. Prefer upcoming verses, permit
+     * skips, and require a strong wording match. Explicit verse commands are handled by goTo().
      */
     fun followSpeech(spoken: String): Verse? {
         val s = state ?: return null
+        if (!s.insideDeclaredRange || s.atDeclaredEnd) return null
         val normalized = normalize(spoken)
         if (normalized.split(' ').size < 3) return null
-        val candidates = s.verses.filter { (it.reference.verseStart ?: 0) > s.currentVerse }
+        val candidates = s.verses.filter {
+            val n = it.reference.verseStart ?: 0
+            n > s.currentVerse && n <= s.declaredEndVerse
+        }
         var best: Pair<Verse, Double>? = null
         for (v in candidates) {
             val score = similarity(normalized, normalize(v.text))
