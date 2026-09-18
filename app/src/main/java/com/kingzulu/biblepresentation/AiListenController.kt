@@ -22,6 +22,7 @@ class AiListenController(
     private val main = Handler(Looper.getMainLooper())
     private var lastFinal = ""
     private var lastFinalAt = 0L
+    private val watchdog = Runnable { if (keepListening) restart(0L) }
     private val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
         putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
         putExtra(RecognizerIntent.EXTRA_LANGUAGE, "en-NG")
@@ -43,21 +44,33 @@ class AiListenController(
     }
     fun stop() { keepListening = false; main.removeCallbacksAndMessages(null); recognizer?.stopListening(); onListeningChanged(false) }
     fun destroy() { keepListening = false; main.removeCallbacksAndMessages(null); recognizer?.destroy(); recognizer = null }
+    private fun armWatchdog() { main.removeCallbacks(watchdog); if (keepListening) main.postDelayed(watchdog, 12_000L) }
     private fun restart(delay: Long = 260L) {
         if (!keepListening) return
-        main.postDelayed({ if (keepListening) { runCatching { recognizer?.cancel() }; runCatching { recognizer?.startListening(intent) }; onListeningChanged(true) } }, delay)
+        main.removeCallbacks(watchdog)
+        main.postDelayed({ if (keepListening) {
+            runCatching { recognizer?.cancel() }
+            runCatching { recognizer?.startListening(intent) }.onFailure {
+                runCatching { recognizer?.destroy() }
+                recognizer = SpeechRecognizer.createSpeechRecognizer(context).also { it.setRecognitionListener(this) }
+                runCatching { recognizer?.startListening(intent) }
+            }
+            armWatchdog()
+            onListeningChanged(true)
+        } }, delay)
     }
-    override fun onReadyForSpeech(params: Bundle?) { onListeningChanged(true) }
-    override fun onBeginningOfSpeech() = Unit
+    override fun onReadyForSpeech(params: Bundle?) { armWatchdog(); onListeningChanged(true) }
+    override fun onBeginningOfSpeech() { armWatchdog() }
     override fun onRmsChanged(rmsdB: Float) = Unit
     override fun onBufferReceived(buffer: ByteArray?) = Unit
-    override fun onEndOfSpeech() = Unit
+    override fun onEndOfSpeech() { armWatchdog() }
     override fun onError(error: Int) {
         if (!keepListening) { onListeningChanged(false); return }
         // NO_MATCH and SPEECH_TIMEOUT are normal boundaries in a sermon; silently cycle.
         restart(if (error == SpeechRecognizer.ERROR_RECOGNIZER_BUSY) 650L else 300L)
     }
     override fun onResults(results: Bundle?) {
+        main.removeCallbacks(watchdog)
         val candidates = results?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)
             ?.map { it.trim().replace(Regex("\\s+"), " ") }
             ?.filter { it.length >= 2 }
