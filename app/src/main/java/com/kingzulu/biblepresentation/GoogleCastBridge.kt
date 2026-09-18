@@ -37,6 +37,8 @@ class WiredDisplayBridge(private val context: Context) {
     private var presentation: KingZuluWiredPresentation? = null; private var activeDisplayId: Int? = null; private var lastSlide: PresentationSlide? = null; private var black = false
     fun assignedBus(): PresentationBus = OutputRouting.busFor(OutputTransport.WIRED); fun assignBus(bus: PresentationBus) = OutputRouting.assign(OutputTransport.WIRED, bus)
     fun available(): List<WiredDisplay> = manager.getDisplays(DisplayManager.DISPLAY_CATEGORY_PRESENTATION).filter { it.displayId != Display.DEFAULT_DISPLAY }.map { WiredDisplay(it.displayId, it.name.ifBlank { "External display" }) }
+    fun isActive(): Boolean = activeDisplayId != null && presentation?.isShowing == true
+    fun activeDisplayName(): String? = activeDisplayId?.let { id -> manager.displays.firstOrNull { it.displayId == id }?.name }
     fun show(displayId: Int): Boolean { val display = manager.displays.firstOrNull { it.displayId == displayId } ?: return false; if (presentation?.isShowing == true && activeDisplayId == displayId) return true; dismiss(); return runCatching { presentation = KingZuluWiredPresentation(context, display).also { it.show(); it.render(lastSlide, black, assignedBus()) }; activeDisplayId = displayId; true }.getOrDefault(false) }
     fun render(slide: PresentationSlide?, isBlack: Boolean=false){lastSlide=slide;black=isBlack;presentation?.render(slide,isBlack,assignedBus())}; fun dismiss(){runCatching{presentation?.dismiss()};presentation=null;activeDisplayId=null}
 }
