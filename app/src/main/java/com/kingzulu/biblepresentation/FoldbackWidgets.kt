@@ -1,58 +1,20 @@
 package com.kingzulu.biblepresentation
 
+import android.content.Context
+
 /** Widgets that can be independently enabled on the private stage/foldback output. */
 enum class FoldbackWidgetType { CLOCK, TIMER, CURRENT_ITEM, NEXT_ITEM, OPERATOR_MESSAGE, ALERT }
 enum class WidgetAnchor { TOP_LEFT, TOP_CENTER, TOP_RIGHT, CENTER_LEFT, CENTER_RIGHT, BOTTOM_LEFT, BOTTOM_CENTER, BOTTOM_RIGHT }
 enum class AlertDirection { LEFT_TO_RIGHT, RIGHT_TO_LEFT }
 
-data class FoldbackClockConfig(
-    val enabled: Boolean = true,
-    val use24Hour: Boolean = false,
-    val showSeconds: Boolean = false,
-    val showDate: Boolean = false,
-    val label: String = "",
-    val anchor: WidgetAnchor = WidgetAnchor.TOP_RIGHT,
-    /** Percentage of output width reserved for the widget, keeping it compact rather than full-screen. */
-    val widthPercent: Int = 22,
-    val marginPercent: Int = 3
-)
-
-data class SlidingAlertConfig(
-    val enabled: Boolean = false,
-    val message: String = "",
-    val cycleCount: Int = 1,
-    /** Approximate ticker travel speed; renderer maps this to pixels/second for each output size. */
-    val speedPercent: Int = 50,
-    val direction: AlertDirection = AlertDirection.RIGHT_TO_LEFT,
-    val anchor: WidgetAnchor = WidgetAnchor.BOTTOM_CENTER,
-    val fontSizeSp: Int = 30,
-    val fontColorArgb: Long = 0xFFFFFFFF,
-    val backgroundColorArgb: Long = 0xCC000000,
-    val backgroundOpacityPercent: Int = 80,
-    val paddingDp: Int = 12
-)
-
-data class FoldbackLayoutConfig(
-    val clock: FoldbackClockConfig = FoldbackClockConfig(),
-    val alert: SlidingAlertConfig = SlidingAlertConfig(),
-    val enabledWidgets: Set<FoldbackWidgetType> = setOf(FoldbackWidgetType.CLOCK)
-)
+data class FoldbackClockConfig(val enabled:Boolean=true,val use24Hour:Boolean=false,val showSeconds:Boolean=false,val showDate:Boolean=false,val label:String="",val anchor:WidgetAnchor=WidgetAnchor.TOP_RIGHT,val widthPercent:Int=22,val marginPercent:Int=3)
+data class SlidingAlertConfig(val enabled:Boolean=false,val message:String="",val cycleCount:Int=1,val speedPercent:Int=50,val direction:AlertDirection=AlertDirection.RIGHT_TO_LEFT,val anchor:WidgetAnchor=WidgetAnchor.BOTTOM_CENTER,val fontSizeSp:Int=30,val fontColorArgb:Long=0xFFFFFFFF,val backgroundColorArgb:Long=0xCC000000,val backgroundOpacityPercent:Int=80,val paddingDp:Int=12)
+data class FoldbackLayoutConfig(val clock:FoldbackClockConfig=FoldbackClockConfig(),val alert:SlidingAlertConfig=SlidingAlertConfig(),val enabledWidgets:Set<FoldbackWidgetType> = setOf(FoldbackWidgetType.CLOCK))
 
 object FoldbackWidgetState {
-    @Volatile var layout: FoldbackLayoutConfig = FoldbackLayoutConfig()
-        private set
-
-    fun configureClock(config: FoldbackClockConfig) {
-        layout = layout.copy(
-            clock = config,
-            enabledWidgets = if (config.enabled) layout.enabledWidgets + FoldbackWidgetType.CLOCK else layout.enabledWidgets - FoldbackWidgetType.CLOCK
-        )
-    }
-
-    fun configureAlert(config: SlidingAlertConfig) {
-        layout = layout.copy(
-            alert = config,
-            enabledWidgets = if (config.enabled) layout.enabledWidgets + FoldbackWidgetType.ALERT else layout.enabledWidgets - FoldbackWidgetType.ALERT
-        )
-    }
+    private const val PREFS="king_zulu_foldback_widgets"
+    @Volatile var layout:FoldbackLayoutConfig=FoldbackLayoutConfig();private set
+    fun initialize(context:Context){val p=context.getSharedPreferences(PREFS,Context.MODE_PRIVATE);val clock=FoldbackClockConfig(p.getBoolean("clock_enabled",true),p.getBoolean("clock_24",false),p.getBoolean("clock_seconds",false),p.getBoolean("clock_date",false),p.getString("clock_label","").orEmpty(),runCatching{WidgetAnchor.valueOf(p.getString("clock_anchor",WidgetAnchor.TOP_RIGHT.name)!!)}.getOrDefault(WidgetAnchor.TOP_RIGHT),p.getInt("clock_width",22),p.getInt("clock_margin",3));val alert=SlidingAlertConfig(p.getBoolean("alert_enabled",false),p.getString("alert_message","").orEmpty(),p.getInt("alert_cycles",1),p.getInt("alert_speed",50),runCatching{AlertDirection.valueOf(p.getString("alert_direction",AlertDirection.RIGHT_TO_LEFT.name)!!)}.getOrDefault(AlertDirection.RIGHT_TO_LEFT),runCatching{WidgetAnchor.valueOf(p.getString("alert_anchor",WidgetAnchor.BOTTOM_CENTER.name)!!)}.getOrDefault(WidgetAnchor.BOTTOM_CENTER),p.getInt("alert_font",30),p.getLong("alert_font_color",0xFFFFFFFF),p.getLong("alert_bg_color",0xCC000000),p.getInt("alert_opacity",80),p.getInt("alert_padding",12));layout=FoldbackLayoutConfig(clock,alert,buildSet{if(clock.enabled)add(FoldbackWidgetType.CLOCK);if(alert.enabled)add(FoldbackWidgetType.ALERT)})}
+    fun configureClock(config:FoldbackClockConfig,context:Context?=null){val c=config.copy(widthPercent=config.widthPercent.coerceIn(10,60),marginPercent=config.marginPercent.coerceIn(0,15));layout=layout.copy(clock=c,enabledWidgets=if(c.enabled)layout.enabledWidgets+FoldbackWidgetType.CLOCK else layout.enabledWidgets-FoldbackWidgetType.CLOCK);context?.getSharedPreferences(PREFS,Context.MODE_PRIVATE)?.edit()?.putBoolean("clock_enabled",c.enabled)?.putBoolean("clock_24",c.use24Hour)?.putBoolean("clock_seconds",c.showSeconds)?.putBoolean("clock_date",c.showDate)?.putString("clock_label",c.label)?.putString("clock_anchor",c.anchor.name)?.putInt("clock_width",c.widthPercent)?.putInt("clock_margin",c.marginPercent)?.apply()}
+    fun configureAlert(config:SlidingAlertConfig,context:Context?=null){val a=config.copy(cycleCount=config.cycleCount.coerceIn(1,20),speedPercent=config.speedPercent.coerceIn(5,100),fontSizeSp=config.fontSizeSp.coerceIn(14,80),backgroundOpacityPercent=config.backgroundOpacityPercent.coerceIn(0,100),paddingDp=config.paddingDp.coerceIn(0,40));layout=layout.copy(alert=a,enabledWidgets=if(a.enabled)layout.enabledWidgets+FoldbackWidgetType.ALERT else layout.enabledWidgets-FoldbackWidgetType.ALERT);context?.getSharedPreferences(PREFS,Context.MODE_PRIVATE)?.edit()?.putBoolean("alert_enabled",a.enabled)?.putString("alert_message",a.message)?.putInt("alert_cycles",a.cycleCount)?.putInt("alert_speed",a.speedPercent)?.putString("alert_direction",a.direction.name)?.putString("alert_anchor",a.anchor.name)?.putInt("alert_font",a.fontSizeSp)?.putLong("alert_font_color",a.fontColorArgb)?.putLong("alert_bg_color",a.backgroundColorArgb)?.putInt("alert_opacity",a.backgroundOpacityPercent)?.putInt("alert_padding",a.paddingDp)?.apply()}
 }
