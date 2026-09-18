@@ -35,7 +35,10 @@ fun BibleTranslationsPanel(onDone: () -> Unit) {
             }.getOrElse {
                 BibleTranslationManager.InstallResult(false, message = it.message ?: "This Bible file could not be installed")
             }
-            message = result.message
+            if (result.success && !result.abbreviation.isNullOrBlank()) {
+                OfflineBibleRepository.selectTranslation(result.abbreviation)
+            }
+            message = if (result.success) "${result.message}. It is now the active Bible." else result.message
             refresh()
         }
     }
@@ -67,21 +70,11 @@ fun BibleTranslationsPanel(onDone: () -> Unit) {
     }
 
     Button(
-        onClick = {
-            // OpenDocument filters by MIME type. XML support in the parser is useless if
-            // Android's picker hides XML files, so expose every format the installer accepts.
-            importer.launch(arrayOf(
-                "application/json",
-                "text/json",
-                "application/xml",
-                "text/xml",
-                "text/plain"
-            ))
-        },
+        onClick = { importer.launch(arrayOf("application/json", "text/json", "application/xml", "text/xml", "text/plain")) },
         modifier = Modifier.fillMaxWidth()
     ) { Text("ADD BIBLE FROM DEVICE") }
 
-    Text("Supported offline formats: King Zulu JSON and Bible XML. Files are checked before installation.", fontSize = 12.sp, color = Color(0xFFAAAAB2))
+    Text("Supported imports: King Zulu JSON and Bible XML. King Zulu checks the file before installing it; unsupported files are rejected safely.", fontSize = 12.sp, color = Color(0xFFAAAAB2))
     if (message.isNotBlank()) Text(message, color = Color(0xFF9B8AFF))
     OutlinedButton(onClick = onDone, modifier = Modifier.fillMaxWidth()) { Text("BACK TO BIBLE") }
 }
