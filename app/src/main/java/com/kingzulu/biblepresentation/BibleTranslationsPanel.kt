@@ -67,11 +67,21 @@ fun BibleTranslationsPanel(onDone: () -> Unit) {
     }
 
     Button(
-        onClick = { importer.launch(arrayOf("application/json", "text/json", "text/plain")) },
+        onClick = {
+            // OpenDocument filters by MIME type. XML support in the parser is useless if
+            // Android's picker hides XML files, so expose every format the installer accepts.
+            importer.launch(arrayOf(
+                "application/json",
+                "text/json",
+                "application/xml",
+                "text/xml",
+                "text/plain"
+            ))
+        },
         modifier = Modifier.fillMaxWidth()
     ) { Text("ADD BIBLE FROM DEVICE") }
 
-    Text("King Zulu checks the file before installing it. Unsupported Bible formats are rejected safely.", fontSize = 12.sp, color = Color(0xFFAAAAB2))
+    Text("Supported offline formats: King Zulu JSON and Bible XML. Files are checked before installation.", fontSize = 12.sp, color = Color(0xFFAAAAB2))
     if (message.isNotBlank()) Text(message, color = Color(0xFF9B8AFF))
     OutlinedButton(onClick = onDone, modifier = Modifier.fillMaxWidth()) { Text("BACK TO BIBLE") }
 }
