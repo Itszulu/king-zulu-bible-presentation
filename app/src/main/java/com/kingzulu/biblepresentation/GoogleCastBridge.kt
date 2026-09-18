@@ -42,12 +42,22 @@ class GoogleCastBridge(context: Context) {
                 put("serverNow", System.currentTimeMillis())
             }
             if (bus == PresentationBus.FOLDBACK) {
-                val reading = ScriptureReadingSession.currentState()
+                val model = ScriptureFoldbackRenderer.render()
                 put("foldback", JSONObject().apply {
-                    put("currentReference", reading?.current?.reference?.display().orEmpty())
-                    put("currentText", reading?.current?.text.orEmpty())
-                    put("nextReference", reading?.next?.reference?.display().orEmpty())
-                    put("nextText", reading?.next?.text.orEmpty())
+                    put("currentReference", model?.currentReference.orEmpty())
+                    put("currentText", model?.currentText.orEmpty())
+                    put("nextReference", model?.nextReference.orEmpty())
+                    put("nextText", model?.nextText.orEmpty())
+                    put("currentWeight", model?.currentWeight ?: 1f)
+                    put("nextWeight", model?.nextWeight ?: 0f)
+                    put("endOfReading", model?.endOfReading ?: false)
+                    put("endLabel", model?.endLabel.orEmpty())
+                    put("mode", model?.mode?.name.orEmpty())
+                    put("teleprompter", org.json.JSONArray().apply {
+                        model?.teleprompter?.forEach { (reference, text) ->
+                            put(JSONObject().put("reference", reference).put("text", text))
+                        }
+                    })
                     put("clockEnabled", FoldbackWidgetState.layout.clock.enabled)
                     put("clock24Hour", FoldbackWidgetState.layout.clock.use24Hour)
                     put("clockSeconds", FoldbackWidgetState.layout.clock.showSeconds)
@@ -92,7 +102,57 @@ class WiredDisplayBridge(private val context: Context) {
 }
 
 private class KingZuluWiredPresentation(context: Context, display: Display) : Presentation(context, display) {
-    private lateinit var referenceView:TextView;private lateinit var bodyView:TextView;private lateinit var translationView:TextView
-    override fun onCreate(savedInstanceState:Bundle?){super.onCreate(savedInstanceState);val root=FrameLayout(context).apply{setBackgroundColor(Color.BLACK)};val content=LinearLayout(context).apply{orientation=LinearLayout.VERTICAL;gravity=Gravity.CENTER;setPadding(72,56,72,56)};referenceView=TextView(context).apply{setTextColor(Color.rgb(185,173,255));textSize=26f;gravity=Gravity.CENTER};bodyView=TextView(context).apply{setTextColor(Color.WHITE);textSize=42f;gravity=Gravity.CENTER;setLineSpacing(8f,1.05f)};translationView=TextView(context).apply{setTextColor(Color.LTGRAY);textSize=20f;gravity=Gravity.CENTER};content.addView(referenceView,LinearLayout.LayoutParams(-1,-2));content.addView(bodyView,LinearLayout.LayoutParams(-1,-2).apply{topMargin=24;bottomMargin=24});content.addView(translationView,LinearLayout.LayoutParams(-1,-2));root.addView(content,FrameLayout.LayoutParams(-1,-1));setContentView(root)}
-    fun render(slide:PresentationSlide?,black:Boolean,bus:PresentationBus){if(!::bodyView.isInitialized)return;window?.decorView?.setBackgroundColor(Color.BLACK);if(black){referenceView.text="";bodyView.text="";translationView.text="";return};if(bus==PresentationBus.FOLDBACK){val state=ScriptureReadingSession.currentState();referenceView.text=state?.current?.reference?.display()?:slide?.reference.orEmpty();bodyView.text=state?.current?.text?:slide?.text.orEmpty();translationView.text=state?.next?.let{"NEXT  ${it.reference.display()}\n${it.text}"}.orEmpty();return};if(slide==null){referenceView.text="";bodyView.text="";translationView.text="";return};referenceView.text=slide.reference;bodyView.text=slide.text;translationView.text=slide.translation}
+    private lateinit var referenceView:TextView
+    private lateinit var bodyView:TextView
+    private lateinit var translationView:TextView
+    private lateinit var content:LinearLayout
+
+    override fun onCreate(savedInstanceState:Bundle?){
+        super.onCreate(savedInstanceState)
+        val root=FrameLayout(context).apply{setBackgroundColor(Color.BLACK)}
+        content=LinearLayout(context).apply{orientation=LinearLayout.VERTICAL;gravity=Gravity.CENTER;setPadding(72,56,72,56)}
+        referenceView=TextView(context).apply{setTextColor(Color.rgb(185,173,255));textSize=26f;gravity=Gravity.CENTER}
+        bodyView=TextView(context).apply{setTextColor(Color.WHITE);textSize=42f;gravity=Gravity.CENTER;setLineSpacing(8f,1.05f)}
+        translationView=TextView(context).apply{setTextColor(Color.LTGRAY);textSize=20f;gravity=Gravity.CENTER;setLineSpacing(5f,1.04f)}
+        content.addView(referenceView,LinearLayout.LayoutParams(-1,-2))
+        content.addView(bodyView,LinearLayout.LayoutParams(-1,0,1f).apply{topMargin=24;bottomMargin=18})
+        content.addView(translationView,LinearLayout.LayoutParams(-1,-2))
+        root.addView(content,FrameLayout.LayoutParams(-1,-1));setContentView(root)
+    }
+
+    fun render(slide:PresentationSlide?,black:Boolean,bus:PresentationBus){
+        if(!::bodyView.isInitialized)return
+        window?.decorView?.setBackgroundColor(Color.BLACK)
+        if(black){referenceView.text="";bodyView.text="";translationView.text="";return}
+        if(bus==PresentationBus.FOLDBACK){
+            val model=ScriptureFoldbackRenderer.render()
+            if(model==null){referenceView.text=slide?.reference.orEmpty();bodyView.text=slide?.text.orEmpty();translationView.text="";return}
+            referenceView.text="CURRENT · ${model.currentReference}"
+            bodyView.text=model.currentText
+            bodyView.textSize=when{model.currentText.length>300->34f;model.currentText.length>190->38f;else->44f}
+            if(model.mode==ScriptureFoldbackMode.TELEPROMPTER){
+                translationView.text=model.teleprompter.drop(1).joinToString("\n\n"){(ref,text)->"$ref\n$text"}
+                translationView.textSize=22f
+            }else if(model.nextText!=null&&model.nextReference!=null){
+                translationView.text="NEXT · ${model.nextReference}\n${model.nextText}"
+                translationView.textSize=22f
+            }else{
+                translationView.text=model.endLabel.orEmpty()
+                translationView.textSize=18f
+            }
+            val currentParams=bodyView.layoutParams as LinearLayout.LayoutParams
+            currentParams.weight=model.currentWeight.coerceIn(.70f,1f)
+            bodyView.layoutParams=currentParams
+            val nextParams=translationView.layoutParams as LinearLayout.LayoutParams
+            nextParams.height=if(model.nextWeight>0f) 0 else LinearLayout.LayoutParams.WRAP_CONTENT
+            nextParams.weight=model.nextWeight.coerceAtLeast(0f)
+            translationView.layoutParams=nextParams
+            return
+        }
+        if(slide==null){referenceView.text="";bodyView.text="";translationView.text="";return}
+        referenceView.text=slide.reference;bodyView.text=slide.text;translationView.text=slide.translation
+        bodyView.textSize=42f;translationView.textSize=20f
+        (bodyView.layoutParams as LinearLayout.LayoutParams).also{it.height=LinearLayout.LayoutParams.WRAP_CONTENT;it.weight=0f;bodyView.layoutParams=it}
+        (translationView.layoutParams as LinearLayout.LayoutParams).also{it.height=LinearLayout.LayoutParams.WRAP_CONTENT;it.weight=0f;translationView.layoutParams=it}
+    }
 }
