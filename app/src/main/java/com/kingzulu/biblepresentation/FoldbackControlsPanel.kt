@@ -7,14 +7,51 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import kotlinx.coroutines.delay
 
 /** Operator controls for private stage widgets. Settings persist in app-private storage. */
 @Composable
 fun FoldbackControlsPanel() {
     val context = LocalContext.current
-    LaunchedEffect(Unit) { FoldbackWidgetState.initialize(context) }
+    LaunchedEffect(Unit) { FoldbackWidgetState.initialize(context); FoldbackTimer.initialize(context) }
     var clock by remember { mutableStateOf(FoldbackWidgetState.layout.clock) }
     var alert by remember { mutableStateOf(FoldbackWidgetState.layout.alert) }
+    var timerMinutes by rememberSaveable { mutableStateOf((FoldbackTimer.configuredSeconds / 60L).toString()) }
+    LaunchedEffect(Unit) { while (true) { FoldbackTimer.refresh(); delay(250) } }
+
+    Card {
+        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Text("PRIVATE FOLDBACK TIMER", fontWeight = FontWeight.Black)
+            Text(FoldbackTimer.display(), fontSize = 42.sp, fontWeight = FontWeight.Black)
+            Text("Visible on the stage/foldback output only. It does not change the congregation countdown.", style = MaterialTheme.typography.bodySmall)
+            OutlinedTextField(
+                value = timerMinutes,
+                onValueChange = { timerMinutes = it.filter(Char::isDigit).take(3) },
+                modifier = Modifier.fillMaxWidth(),
+                enabled = !FoldbackTimer.running,
+                label = { Text("Minutes (1–240)") },
+                singleLine = true
+            )
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedButton({
+                    val minutes = timerMinutes.toLongOrNull()?.coerceIn(1L, 240L) ?: return@OutlinedButton
+                    FoldbackTimer.setMinutes(minutes); timerMinutes = minutes.toString()
+                }, Modifier.weight(1f), enabled = !FoldbackTimer.running) { Text("SET") }
+                OutlinedButton({ FoldbackTimer.reset() }, Modifier.weight(1f)) { Text("RESET") }
+            }
+            Button({ if (FoldbackTimer.running) FoldbackTimer.pause() else FoldbackTimer.startOrResume() }, Modifier.fillMaxWidth()) {
+                Text(if (FoldbackTimer.running) "PAUSE" else "START")
+            }
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                Column(Modifier.weight(1f)) {
+                    Text("Overtime")
+                    Text("Continue past 00:00 as +time", style = MaterialTheme.typography.bodySmall)
+                }
+                Switch(FoldbackTimer.allowOvertime, { FoldbackTimer.setOvertime(it) })
+            }
+        }
+    }
 
     Card {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
