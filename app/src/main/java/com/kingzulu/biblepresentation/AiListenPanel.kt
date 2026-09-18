@@ -27,11 +27,19 @@ import kotlinx.coroutines.withContext
  fun slide(v:Verse)=PresentationSlide(v.reference.display(),v.text,v.translation)
  val analyzeCandidates by rememberUpdatedState<(List<String>)->Unit>({alternatives->
    if(alternatives.isEmpty())return@rememberUpdatedState
-   val id=++analysisId;localStatus="Understanding sermon…"
+   val id=++analysisId
+   // Fast path: explicit references and contextual navigation are deterministic
+   // and must never wait behind whole-Bible quotation search.
+   val immediate=AiSermonContext.decide(alternatives)
+   sermonQueue=immediate.queue;candidates=emptyList();explicitSlide=immediate.activate?.let(::slide)
+   immediate.activate?.let{v->val s=slide(v);if(currentAutoLive){currentGoLive(s);localStatus="LIVE • ${s.reference}"}else{currentPreview(s);localStatus="Ready • ${s.reference}"};return@rememberUpdatedState}
+   if(immediate.intent==ScriptureSpeechIntent.LISTING){localStatus="${immediate.queue.size} Scriptures prepared — waiting for the preacher to choose one";return@rememberUpdatedState}
+   if(immediate.intent==ScriptureSpeechIntent.MENTION){localStatus="Scripture mentioned — not projected";return@rememberUpdatedState}
+   localStatus="Checking Scripture wording…"
    scope.launch{
      val result=withContext(Dispatchers.Default){
-       val discourse=AiSermonContext.decide(alternatives)
-       val ranked=if(discourse.activate==null&&discourse.intent!=ScriptureSpeechIntent.LISTING) alternatives.flatMapIndexed{candidateIndex,text->val prior=(8-candidateIndex.coerceAtMost(7))*.012;OfflineBibleRepository.searchQuoteMatches(text,8).map{it.copy(score=it.score+prior)}}.groupBy{it.verse.reference.display()+"|"+it.verse.translation}.mapNotNull{(_,same)->same.maxByOrNull{it.score}}.sortedByDescending{it.score}.take(5) else emptyList()
+       val discourse=immediate
+       val ranked=alternatives.flatMapIndexed{candidateIndex,text->val prior=(8-candidateIndex.coerceAtMost(7))*.012;OfflineBibleRepository.searchQuoteMatches(text,8).map{it.copy(score=it.score+prior)}}.groupBy{it.verse.reference.display()+"|"+it.verse.translation}.mapNotNull{(_,same)->same.maxByOrNull{it.score}}.sortedByDescending{it.score}.take(5)
        discourse to ranked
      }
      if(id!=analysisId)return@launch
