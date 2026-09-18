@@ -8,6 +8,7 @@ object ScriptureFoldbackRenderer {
     data class RenderModel(
         val currentReference: String,
         val currentText: String,
+        val translation: String = "",
         val nextReference: String? = null,
         val nextText: String? = null,
         val currentWeight: Float = 1f,
@@ -33,6 +34,7 @@ object ScriptureFoldbackRenderer {
             return RenderModel(
                 currentReference = currentRef,
                 currentText = current.text,
+                translation = current.translation,
                 mode = ScriptureFoldbackMode.TELEPROMPTER,
                 teleprompter = remaining,
                 endOfReading = state.atDeclaredEnd,
@@ -46,6 +48,7 @@ object ScriptureFoldbackRenderer {
             return RenderModel(
                 currentReference = currentRef,
                 currentText = current.text,
+                translation = current.translation,
                 currentWeight = 1f,
                 nextWeight = 0f,
                 endOfReading = true,
@@ -77,6 +80,7 @@ object ScriptureFoldbackRenderer {
         return RenderModel(
             currentReference = currentRef,
             currentText = current.text,
+            translation = current.translation,
             nextReference = next.reference.display(),
             nextText = next.text,
             currentWeight = currentWeight,
@@ -88,7 +92,7 @@ object ScriptureFoldbackRenderer {
     fun stageState(base: StageDisplayState = StageDisplayState()): StageDisplayState {
         val model = render() ?: return base.copy(currentText = "", nextText = "")
         val current = buildString {
-            append("CURRENT · ").append(model.currentReference).append('\n')
+            append("CURRENT · ").append(model.currentReference).append(" · ").append(model.translation).append('\n')
             append(model.currentText)
             model.endLabel?.let { append("\n\n").append(it) }
         }
