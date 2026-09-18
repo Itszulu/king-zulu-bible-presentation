@@ -13,7 +13,17 @@ object AiSermonContext {
  fun history():List<ScriptureHistoryEntry> = synchronized(history){history.toList()}
  fun clearSession(){active=null;synchronized(queued){queued.clear()};synchronized(mentioned){mentioned.clear()};synchronized(history){history.clear()};ScriptureReadingSession.clear()}
  fun decide(alternatives:List<String>):ScriptureSpeechDecision{
-  for(raw in alternatives){
+  // Prefer pastoral shorthand preserved by any ASR candidate (e.g. "Mark 1 3")
+  // over a merged candidate such as "Mark 13".
+  val orderedAlternatives=alternatives.sortedByDescending { raw ->
+   val n=normalize(raw)
+   when {
+    Regex("\\b[a-z]+(?: [a-z]+){0,2} \\d{1,3} \\d{1,3}(?: \\d{1,3})?\\b").containsMatchIn(n) -> 3
+    n.contains(" verse ") || n.contains(" chapter ") -> 2
+    else -> 1
+   }
+  }
+  for(raw in orderedAlternatives){
    val text=normalize(raw)
    resolveHistoryCommand(text)?.let{return activate(it,ScriptureSpeechIntent.NAVIGATION,.98)}
    if(isExplicitNavigation(text)){
