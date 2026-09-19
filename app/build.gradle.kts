@@ -14,8 +14,8 @@ android {
         applicationId = "com.kingzulu.biblepresentation"
         minSdk = 26
         targetSdk = 36
-        versionCode = 3
-        versionName = "1.0.2-beta"
+        versionCode = 4
+        versionName = "1.0.3-beta"
 
         val yvKey = providers.gradleProperty("YOUVERSION_APP_KEY").orElse("")
         buildConfigField("String", "YOUVERSION_APP_KEY", "\"${yvKey.get()}\"")
