@@ -39,7 +39,17 @@ import kotlinx.coroutines.withContext
    scope.launch{
      val result=withContext(Dispatchers.Default){
        val discourse=immediate
-       val ranked=alternatives.flatMapIndexed{candidateIndex,text->val prior=(8-candidateIndex.coerceAtMost(7))*.012;OfflineBibleRepository.searchQuoteMatches(text,8).map{it.copy(score=it.score+prior)}}.groupBy{it.verse.reference.display()+"|"+it.verse.translation}.mapNotNull{(_,same)->same.maxByOrNull{it.score}}.sortedByDescending{it.score}.take(5)
+       // Do not run a whole-Bible search for every recognizer alternative.
+       // The primary transcript is normally the best candidate; try it first,
+       // then one fallback only when the first is not confident.
+       val primary=alternatives.first()
+       var ranked=OfflineBibleRepository.searchQuoteMatches(primary,5)
+       if((ranked.firstOrNull()?.score?:0.0)<0.72&&alternatives.size>1){
+         ranked=(ranked+OfflineBibleRepository.searchQuoteMatches(alternatives[1],5))
+           .groupBy{it.verse.reference.display()+"|"+it.verse.translation}
+           .mapNotNull{(_,same)->same.maxByOrNull{it.score}}
+       }
+       ranked=ranked.sortedByDescending{it.score}.take(5)
        discourse to ranked
      }
      if(id!=analysisId)return@launch
