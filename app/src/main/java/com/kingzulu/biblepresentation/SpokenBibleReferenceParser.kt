@@ -14,6 +14,16 @@ object SpokenBibleReferenceParser {
  private fun normalize(raw:String):String{var s=raw.lowercase().replace(Regex("[^a-z0-9: -]")," ").replace(Regex("\\s+")," ").trim();listOf("the book of","book of","the book","book").forEach{s=s.replace(it," ")};aliases.entries.sortedByDescending{it.key.length}.forEach{(a,b)->s=s.replace(Regex("\\b${Regex.escape(a)}\\b"),b)};return s.replace(Regex("\\s+")," ").trim()}
  fun parse(transcript:String):BibleReference?{val clean=normalize(transcript);for(book in canonical.sortedByDescending{it.length}){for(m in Regex("\\b${Regex.escape(book)}\\b").findAll(clean)){parseFromBook(clean.substring(m.range.first).trim())?.let{return it}}};val words=clean.split(" ");for(start in words.indices){for(len in 2..minOf(12,words.size-start)){BibleReferenceParser.parse(words.drop(start).take(len).joinToString(" "))?.let{return it}}};return null}
  private fun parseFromBook(text:String):BibleReference?{
+  // Preserve separately recognized numeric tokens: "Jn 1 1" means John 1:1,
+  // never John 11. This fast path runs before the generic parser.
+  val direct=text.split(" ").filter{it.isNotBlank()}
+  for(book in canonical.sortedByDescending{it.length})if(text.startsWith(book)){
+   val tail=text.removePrefix(book).trim().split(" ").filter{it.isNotBlank()}
+   if(tail.size>=2&&tail[0].all{it.isDigit()}&&tail[1].all{it.isDigit()}){
+    val ch=tail[0].toIntOrNull();val v=tail[1].toIntOrNull()
+    if(ch!=null&&v!=null)BibleReferenceParser.parse("$book $ch:$v")?.let{return it}
+   }
+  }
   BibleReferenceParser.parse(text)?.let{return it}
   val tokens=text.split(" ");val chapterIndex=tokens.indexOfFirst{it=="chapter"};val verseIndex=tokens.indexOfFirst{it=="verse"||it=="verses"}
   if(chapterIndex>0&&verseIndex>chapterIndex){val book=tokens.subList(0,chapterIndex).joinToString(" ");val chapter=spokenNumber(tokens.subList(chapterIndex+1,verseIndex).filterNot{it in setOf("the","and")})?:return null;val after=tokens.drop(verseIndex+1);val sep=after.indexOfFirst{it=="to"||it=="through"};val firstTokens=if(sep>=0)after.take(sep)else after.takeWhile{it !in setOf("and","then","where","which","says","reads")};val verse=spokenNumber(firstTokens.take(4))?:return null;val end=if(sep>=0)spokenNumber(after.drop(sep+1).take(4))else null;return BibleReferenceParser.parse("$book $chapter:$verse${end?.let{"-$it"}?:""}")}
