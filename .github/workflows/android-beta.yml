@@ -102,7 +102,7 @@ jobs:
           APKSIGNER="$(find "$ANDROID_HOME/build-tools" -type f -name apksigner | sort -V | tail -1)"
           test -n "$APKSIGNER"
           "$APKSIGNER" verify --verbose --print-certs "$APK"
-          "$APKSIGNER" verify --print-certs "$APK" | grep -q "Signer #1 certificate SHA-256 digest:"
+          "$APKSIGNER" verify --print-certs "$APK" | grep -Eq "(Signer #1|V2 Signer): certificate SHA-256 digest:"
 
       - name: Rename Beta APK
         run: cp app/build/outputs/apk/release/app-release.apk KingZulu-Beta1.apk
