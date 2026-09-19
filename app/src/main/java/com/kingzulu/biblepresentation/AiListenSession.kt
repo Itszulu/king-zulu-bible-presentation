@@ -18,6 +18,8 @@ object AiListenSession {
         private set
     @Volatile var status: String = "Ready to listen"
         private set
+    @Volatile var lastCandidates: List<String> = emptyList()
+        private set
 
     private val listeners = linkedSetOf<() -> Unit>()
 
@@ -35,7 +37,12 @@ object AiListenSession {
         onFinalTranscript: (String) -> Unit,
         onFinalCandidates: (List<String>) -> Unit
     ): AiListenController {
-        controller?.let { return it }
+        controller?.let { existing ->
+            // Screen navigation may recreate the Compose callback. Keep the speech
+            // engine alive, but replay its latest recognition into the new screen.
+            if (lastCandidates.isNotEmpty()) onFinalCandidates(lastCandidates)
+            return existing
+        }
         val app = context.applicationContext
         return AiListenController(
             context = app,
@@ -43,7 +50,7 @@ object AiListenSession {
             onPartialTranscript = { value -> transcript = value; status = "Listening…"; changed() },
             onFinalTranscript = { value -> transcript = value; onFinalTranscript(value); changed() },
             onError = { value -> status = value; changed() },
-            onFinalCandidates = onFinalCandidates
+            onFinalCandidates = { values -> lastCandidates = values; onFinalCandidates(values); changed() }
         ).also { controller = it }
     }
 
