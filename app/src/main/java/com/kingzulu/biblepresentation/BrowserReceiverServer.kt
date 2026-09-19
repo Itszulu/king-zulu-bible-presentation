@@ -11,7 +11,7 @@ import org.json.JSONObject
 class BrowserReceiverServer(private val context:Context){
 private val running=AtomicBoolean(false);private val pool=Executors.newCachedThreadPool();private var server:ServerSocket?=null;@Volatile private var snapshot=ReceiverSnapshot();private val clients=ConcurrentHashMap<String,Long>()
 data class ReceiverSnapshot(val reference:String="",val text:String="",val translation:String="",val kind:String="",val black:Boolean=false,val background:String="",val overlay:Float=.38f,val textSize:Int=32,val autoFit:Boolean=true,val revision:Long=0)
-fun isRunning()=running.get();fun currentAddress(port:Int=8787)=if(running.get())mainAddress(port)else null;fun mainAddress(port:Int=8787)=address(port)?.let{"$it/main"};fun foldbackAddress(port:Int=8787)=address(port)?.let{"$it/foldback"}
+fun isRunning()=running.get();fun currentAddress(port:Int=8787)=if(running.get())mainAddress(port)else null;fun mainAddress(port:Int=8787)=address(port)?.let{"$it/m"};fun foldbackAddress(port:Int=8787)=address(port)?.let{"$it/f"}
 fun connectedClients():Int{pruneClients();return clients.size}
 fun connectedMainClients():Int{pruneClients();return clients.keys.count{it.startsWith("/main:")}}
 fun connectedFoldbackClients():Int{pruneClients();return clients.keys.count{it.startsWith("/foldback:")}}
