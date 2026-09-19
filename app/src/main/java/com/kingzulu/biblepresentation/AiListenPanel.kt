@@ -25,6 +25,7 @@ import kotlinx.coroutines.withContext
  val currentAutoLive by rememberUpdatedState(autoLive);val currentGoLive by rememberUpdatedState(onGoLive);val currentPreview by rememberUpdatedState(onPreview)
  fun setAutoLive(enabled:Boolean){autoLive=enabled;OperatorPreferences.setAiAutoLive(context,enabled)}
  fun slide(v:Verse)=PresentationSlide(v.reference.display(),v.text,v.translation)
+ fun goLiveFromAi(s:PresentationSlide){AiLiveHistory.record(context,s);currentGoLive(s)}
  val analyzeCandidates by rememberUpdatedState<(List<String>)->Unit>({alternatives->
    if(alternatives.isEmpty())return@rememberUpdatedState
    val id=++analysisId
@@ -32,7 +33,7 @@ import kotlinx.coroutines.withContext
    // and must never wait behind whole-Bible quotation search.
    val immediate=AiSermonContext.decide(alternatives)
    sermonQueue=immediate.queue;candidates=emptyList();explicitSlide=immediate.activate?.let(::slide)
-   immediate.activate?.let{v->val s=slide(v);if(currentAutoLive){currentGoLive(s);localStatus="LIVE • ${s.reference}"}else{currentPreview(s);localStatus="Ready • ${s.reference}"};return@rememberUpdatedState}
+   immediate.activate?.let{v->val s=slide(v);if(currentAutoLive){goLiveFromAi(s);localStatus="LIVE • ${s.reference}"}else{currentPreview(s);localStatus="Ready • ${s.reference}"};return@rememberUpdatedState}
    if(immediate.intent==ScriptureSpeechIntent.LISTING){localStatus="${immediate.queue.size} Scriptures prepared — waiting for the preacher to choose one";return@rememberUpdatedState}
    if(immediate.intent==ScriptureSpeechIntent.MENTION){localStatus="Scripture mentioned — not projected";return@rememberUpdatedState}
    localStatus="Checking Scripture wording…"
@@ -54,11 +55,11 @@ import kotlinx.coroutines.withContext
      }
      if(id!=analysisId)return@launch
      val(discourse,matches)=result;sermonQueue=discourse.queue;candidates=matches;explicitSlide=discourse.activate?.let(::slide)
-     discourse.activate?.let{v->val s=slide(v);if(currentAutoLive){currentGoLive(s);localStatus="LIVE • ${s.reference}"}else{currentPreview(s);localStatus="Ready • ${s.reference}"};return@launch}
+     discourse.activate?.let{v->val s=slide(v);if(currentAutoLive){goLiveFromAi(s);localStatus="LIVE • ${s.reference}"}else{currentPreview(s);localStatus="Ready • ${s.reference}"};return@launch}
      if(discourse.intent==ScriptureSpeechIntent.LISTING){explicitSlide=null;candidates=emptyList();localStatus="${discourse.queue.size} Scriptures prepared — waiting for the preacher to choose one";return@launch}
      if(discourse.intent==ScriptureSpeechIntent.MENTION){explicitSlide=null;localStatus="Scripture mentioned — not projected";return@launch}
      val best=matches.firstOrNull();val second=matches.getOrNull(1);val decisive=best!=null&&best.score>=0.82&&(second==null||best.score-second.score>=0.18)
-     if(best==null)localStatus="No confident Scripture yet — keep speaking" else if(currentAutoLive&&decisive){val s=slide(best.verse);AiSermonContext.decide(listOf(s.reference));currentGoLive(s);localStatus="LIVE • ${s.reference}"}else if(decisive){val s=slide(best.verse);currentPreview(s);localStatus="Possible quotation match • ${s.reference}"}else if(matches.size>1)localStatus="${matches.size} possible matches — choose the intended Scripture" else localStatus="Possible Scripture match found"
+     if(best==null)localStatus="No confident Scripture yet — keep speaking" else if(currentAutoLive&&decisive){val s=slide(best.verse);AiSermonContext.decide(listOf(s.reference));goLiveFromAi(s);localStatus="LIVE • ${s.reference}"}else if(decisive){val s=slide(best.verse);currentPreview(s);localStatus="Possible quotation match • ${s.reference}"}else if(matches.size>1)localStatus="${matches.size} possible matches — choose the intended Scripture" else localStatus="Possible Scripture match found"
    }
  })
  val controller=remember(context){AiListenSession.ensure(context,{},{alts->analyzeCandidates(alts)})}
