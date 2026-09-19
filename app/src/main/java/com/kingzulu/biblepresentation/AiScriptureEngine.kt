@@ -34,11 +34,11 @@ object AiScriptureEngine {
             chapters.getOrNull(ci - 1)?.let { OfflineBibleRepository.chapter(ref.book, it, base.translation).lastOrNull() }
         }
 
-        if (t.matches(Regex(".*\\b(next verse|continue|go forward|carry on|keep reading)\\b.*"))) return nextVerse()
-        if (t.matches(Regex(".*\\b(previous verse|last verse|go back one verse|go back a verse)\\b.*"))) return previousVerse()
+        if (t.matches(Regex(".*\\b(next|next verse|continue|go forward|carry on|keep reading)\\b.*"))) return nextVerse()
+        if (t.matches(Regex(".*\\b(previous|previous verse|last verse|go back one verse|go back a verse)\\b.*"))) return previousVerse()
         if (t.matches(Regex(".*\\b(repeat|repeat that|same verse|repeat verse)\\b.*"))) return base
 
-        Regex("(?:go (?:back )?to |back to )?verse ([0-9]{1,3})").find(t)?.groupValues?.getOrNull(1)?.toIntOrNull()?.let { return verse(it) }
+        Regex("(?:lets? (?:see|read|look at) |(?:go|jump|take me) (?:back )?to |back to )?verse ([0-9]{1,3})").find(t)?.groupValues?.getOrNull(1)?.toIntOrNull()?.let { return verse(it) }
         Regex("(?:go to |open )?chapter ([0-9]{1,3})(?: verse ([0-9]{1,3}))?").find(t)?.let { m ->
             val chapter=m.groupValues[1].toIntOrNull()?:return@let
             val v=m.groupValues.getOrNull(2)?.toIntOrNull()?:1
