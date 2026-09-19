@@ -73,13 +73,39 @@ jobs:
             echo "YouVersion provider: not configured; building offline-first app without it"
           fi
 
+      - name: Require permanent King Zulu signing identity
+        env:
+          KZ_KEYSTORE_B64: ${{ secrets.KINGZULU_KEYSTORE_B64 }}
+          KZ_STORE_PASSWORD: ${{ secrets.KINGZULU_KEYSTORE_PASSWORD }}
+          KZ_KEY_ALIAS: ${{ secrets.KINGZULU_KEY_ALIAS }}
+          KZ_KEY_PASSWORD: ${{ secrets.KINGZULU_KEY_PASSWORD }}
+        run: |
+          test -n "$KZ_KEYSTORE_B64" || { echo "::error::KINGZULU_KEYSTORE_B64 is not configured"; exit 1; }
+          test -n "$KZ_STORE_PASSWORD" || { echo "::error::KINGZULU_KEYSTORE_PASSWORD is not configured"; exit 1; }
+          test -n "$KZ_KEY_ALIAS" || { echo "::error::KINGZULU_KEY_ALIAS is not configured"; exit 1; }
+          test -n "$KZ_KEY_PASSWORD" || { echo "::error::KINGZULU_KEY_PASSWORD is not configured"; exit 1; }
+          echo "$KZ_KEYSTORE_B64" | base64 --decode > "$RUNNER_TEMP/kingzulu-release.jks"
+
       - name: Compile, lint and unit test
         env:
           YOUVERSION_APP_KEY: ${{ secrets.YOUVERSION_APP_KEY }}
-        run: gradle --no-daemon :app:assembleDebug :app:testDebugUnitTest :app:lintDebug --stacktrace -PYOUVERSION_APP_KEY="$YOUVERSION_APP_KEY"
+          KINGZULU_KEYSTORE_PATH: ${{ runner.temp }}/kingzulu-release.jks
+          KINGZULU_KEYSTORE_PASSWORD: ${{ secrets.KINGZULU_KEYSTORE_PASSWORD }}
+          KINGZULU_KEY_ALIAS: ${{ secrets.KINGZULU_KEY_ALIAS }}
+          KINGZULU_KEY_PASSWORD: ${{ secrets.KINGZULU_KEY_PASSWORD }}
+        run: gradle --no-daemon :app:assembleRelease :app:testDebugUnitTest :app:lintDebug --stacktrace -PYOUVERSION_APP_KEY="$YOUVERSION_APP_KEY"
+
+      - name: Verify release APK signature
+        run: |
+          APK=app/build/outputs/apk/release/app-release.apk
+          test -s "$APK"
+          APKSIGNER="$(find "$ANDROID_HOME/build-tools" -type f -name apksigner | sort -V | tail -1)"
+          test -n "$APKSIGNER"
+          "$APKSIGNER" verify --verbose --print-certs "$APK"
+          "$APKSIGNER" verify --print-certs "$APK" | grep -q "Signer #1 certificate SHA-256 digest:"
 
       - name: Rename Beta APK
-        run: cp app/build/outputs/apk/debug/app-debug.apk KingZulu-Beta1.apk
+        run: cp app/build/outputs/apk/release/app-release.apk KingZulu-Beta1.apk
 
       - name: Upload Beta APK
         uses: actions/upload-artifact@v4
