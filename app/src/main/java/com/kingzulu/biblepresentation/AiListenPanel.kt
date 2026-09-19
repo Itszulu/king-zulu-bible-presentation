@@ -14,6 +14,9 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 import androidx.core.content.ContextCompat
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -21,11 +24,11 @@ import kotlinx.coroutines.withContext
 
 @Composable fun AiListenPanel(onPreview:(PresentationSlide)->Unit,onGoLive:(PresentationSlide)->Unit){
  val context=LocalContext.current;val scope=rememberCoroutineScope();var sessionTick by remember{mutableIntStateOf(0)};var candidates by remember{mutableStateOf<List<ScriptureMatch>>(emptyList())};var explicitSlide by remember{mutableStateOf<PresentationSlide?>(null)};var sermonQueue by remember{mutableStateOf<List<Verse>>(AiSermonContext.queue())};var analysisId by remember{mutableIntStateOf(0)};var autoLive by remember{mutableStateOf(OperatorPreferences.aiAutoLive(context))}
- val listening=AiListenSession.listening.also{sessionTick};val transcript=AiListenSession.transcript.also{sessionTick};var localStatus by remember{mutableStateOf("")};val status=if(localStatus.isBlank())AiListenSession.status.also{sessionTick}else localStatus
+ val listening=AiListenSession.listening.also{sessionTick};val transcript=AiListenSession.transcript.also{sessionTick};var localStatus by remember{mutableStateOf("")};var historyTick by remember{mutableIntStateOf(0)};val status=if(localStatus.isBlank())AiListenSession.status.also{sessionTick}else localStatus
  val currentAutoLive by rememberUpdatedState(autoLive);val currentGoLive by rememberUpdatedState(onGoLive);val currentPreview by rememberUpdatedState(onPreview)
  fun setAutoLive(enabled:Boolean){autoLive=enabled;OperatorPreferences.setAiAutoLive(context,enabled)}
  fun slide(v:Verse)=PresentationSlide(v.reference.display(),v.text,v.translation)
- fun goLiveFromAi(s:PresentationSlide){AiLiveHistory.record(context,s);currentGoLive(s)}
+ fun goLiveFromAi(s:PresentationSlide){AiLiveHistory.record(context,s);historyTick++;currentGoLive(s)}
  val analyzeCandidates by rememberUpdatedState<(List<String>)->Unit>({alternatives->
    if(alternatives.isEmpty())return@rememberUpdatedState
    val id=++analysisId
@@ -70,6 +73,17 @@ import kotlinx.coroutines.withContext
  Surface(Modifier.fillMaxWidth(),color=MaterialTheme.colorScheme.surface,shape=RoundedCornerShape(22.dp)){Column(Modifier.padding(18.dp),verticalArrangement=Arrangement.spacedBy(10.dp)){Text("AI PROJECTION",fontWeight=FontWeight.Black,fontSize=12.sp,color=Color(0xFFA6A7AD));Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(8.dp)){if(autoLive)Button({setAutoLive(true)},Modifier.weight(1f)){Text("AUTO LIVE")}else OutlinedButton({setAutoLive(true)},Modifier.weight(1f)){Text("AUTO LIVE")};if(!autoLive)Button({setAutoLive(false)},Modifier.weight(1f)){Text("PREVIEW FIRST")}else OutlinedButton({setAutoLive(false)},Modifier.weight(1f)){Text("PREVIEW FIRST")}};Text(if(autoLive)"Direct reading commands can go live immediately. Lists and incidental mentions are held safely." else "AI prepares the intended Scripture for operator approval.",fontSize=12.sp,color=if(autoLive)Color(0xFF75D69C)else Color(0xFFA6A7AD))}}
  Surface(Modifier.fillMaxWidth(),color=if(listening)Color(0xFF15251F)else MaterialTheme.colorScheme.surface,shape=RoundedCornerShape(22.dp)){Column(Modifier.padding(18.dp),verticalArrangement=Arrangement.spacedBy(12.dp)){Text(if(listening)"● LISTENING" else "○ NOT LISTENING",fontWeight=FontWeight.Black,color=if(listening)Color(0xFF75D69C)else Color(0xFFA6A7AD));Text(status,color=Color(0xFFB8BAC1));Button({if(listening){AiListenSession.stop();localStatus=""}else startListening()},Modifier.fillMaxWidth().height(54.dp),shape=RoundedCornerShape(16.dp)){Text(if(listening)"STOP LISTENING" else "START LISTENING",fontWeight=FontWeight.Bold)}}}
  Text("LIVE TRANSCRIPT",fontWeight=FontWeight.Bold,color=Color(0xFFA6A7AD));Surface(Modifier.fillMaxWidth(),color=MaterialTheme.colorScheme.surface,shape=RoundedCornerShape(20.dp)){Text(if(transcript.isBlank())"Speech will appear here…" else transcript,Modifier.padding(18.dp),fontSize=18.sp,color=if(transcript.isBlank())Color(0xFF777980)else Color.White)}
+ val liveHistory=remember(historyTick){AiLiveHistory.entries(context).asReversed()}
+ if(liveHistory.isNotEmpty()){
+  Text("AI LIVE HISTORY",fontWeight=FontWeight.Bold,color=Color(0xFFA6A7AD))
+  Surface(Modifier.fillMaxWidth(),color=MaterialTheme.colorScheme.surface,shape=RoundedCornerShape(20.dp)){Column(Modifier.padding(14.dp),verticalArrangement=Arrangement.spacedBy(8.dp)){
+   liveHistory.take(20).forEach{entry->
+    val s=entry.slide;val time=remember(entry.timestamp){SimpleDateFormat("h:mm a",Locale.getDefault()).format(Date(entry.timestamp))}
+    Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(8.dp)){Column(Modifier.weight(1f)){Text(s.reference,fontWeight=FontWeight.Black);Text("${s.translation} · $time",fontSize=12.sp,color=Color(0xFFA6A7AD))};OutlinedButton({currentPreview(s)}){Text("PREVIEW")};Button({goLiveFromAi(s)}){Text("LIVE")}}
+   }
+   TextButton({AiLiveHistory.clear(context);historyTick++}){Text("CLEAR HISTORY")}
+  }}
+ }
  if(sermonQueue.isNotEmpty()){Text("SERMON SCRIPTURE QUEUE",fontWeight=FontWeight.Bold,color=Color(0xFFA6A7AD));Surface(Modifier.fillMaxWidth(),color=MaterialTheme.colorScheme.surface,shape=RoundedCornerShape(20.dp)){Column(Modifier.padding(14.dp),verticalArrangement=Arrangement.spacedBy(6.dp)){sermonQueue.forEachIndexed{i,v->Text("${i+1}. ${v.reference.display()}",fontWeight=if(AiSermonContext.activeVerse()?.reference?.display()==v.reference.display())FontWeight.Black else FontWeight.Normal,color=if(AiSermonContext.activeVerse()?.reference?.display()==v.reference.display())Color(0xFF75D69C)else Color.White)}}}}
  Text(if(candidates.size>1)"POSSIBLE SCRIPTURE MATCHES" else "SCRIPTURE DETECTED",fontWeight=FontWeight.Bold,color=Color(0xFFA6A7AD));explicitSlide?.let{s->MatchCard(s,"CONTEXT SELECTED",onPreview,onGoLive)};if(explicitSlide==null&&candidates.isEmpty()&&sermonQueue.isEmpty())Surface(Modifier.fillMaxWidth(),color=MaterialTheme.colorScheme.surface,shape=RoundedCornerShape(20.dp)){Text("No verse detected yet",Modifier.padding(18.dp),color=Color(0xFF888A91))};candidates.forEachIndexed{i,m->MatchCard(slide(m.verse),if(i==0)"BEST MATCH" else "OPTION ${i+1}",onPreview,onGoLive)}
 }
