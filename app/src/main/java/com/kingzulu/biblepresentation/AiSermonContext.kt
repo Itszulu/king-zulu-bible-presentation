@@ -27,12 +27,14 @@ object AiSermonContext {
    val text=normalize(raw)
    resolveHistoryCommand(text)?.let{return activate(it,ScriptureSpeechIntent.NAVIGATION,.98)}
    if(isExplicitNavigation(text)){
+    // Navigation must work after ANY detected verse, not only a declared range.
+    // AiScriptureEngine owns the persistent current book/chapter context.
+    AiScriptureEngine.resolveSpeech(listOf(raw))?.let{return activate(it,ScriptureSpeechIntent.NAVIGATION,.99)}
     ScriptureReadingSession.currentState()?.let{
      contextualVerseNumber(text)?.let{n->ScriptureReadingSession.goTo(n)?.let{return activate(it,ScriptureSpeechIntent.NAVIGATION,.99)}}
-     if(Regex("\\b(next verse|continue|continue reading|continue to the next verse|go forward one verse)\\b").containsMatchIn(text))ScriptureReadingSession.next()?.let{return activate(it,ScriptureSpeechIntent.NAVIGATION,.99)}
-     if(Regex("\\b(previous verse|go back|go back one verse|take me back one verse)\\b").containsMatchIn(text))ScriptureReadingSession.previous()?.let{return activate(it,ScriptureSpeechIntent.NAVIGATION,.99)}
+     if(Regex("\\b(next|next verse|continue|continue reading|continue to the next verse|go forward one verse)\\b").containsMatchIn(text))ScriptureReadingSession.next()?.let{return activate(it,ScriptureSpeechIntent.NAVIGATION,.99)}
+     if(Regex("\\b(previous|previous verse|go back|go back one verse|take me back one verse)\\b").containsMatchIn(text))ScriptureReadingSession.previous()?.let{return activate(it,ScriptureSpeechIntent.NAVIGATION,.99)}
     }
-    AiScriptureEngine.resolveSpeech(listOf(raw))?.let{return activate(it,ScriptureSpeechIntent.NAVIGATION,.99)}
    }
    val parsed=SpokenBibleReferenceParser.parse(raw)
    if(parsed?.verseStart!=null&&parsed.verseEnd!=null&&parsed.verseEnd>parsed.verseStart){val session=ScriptureReadingSession.start(parsed)?:continue;retireQueueForNewReading(session.current);session.current?.let{return activate(it,ScriptureSpeechIntent.RANGE_READ,.99)}}
@@ -58,7 +60,7 @@ object AiSermonContext {
  private fun resolveQueueSelection(t:String):Verse?{val q=queue();if(q.isEmpty())return null;val ordinal=mapOf("first" to 0,"second" to 1,"third" to 2,"fourth" to 3,"last" to q.lastIndex);ordinal.entries.firstOrNull{(word,_)->Regex("\\b(read|take|go to|look at|lets read|let us read)?\\s*(the )?$word( one| scripture| passage)?\\b").containsMatchIn(t)}?.let{return q.getOrNull(it.value)};q.firstOrNull{v->t.contains(v.reference.book.lowercase())&&(t.contains("read")||t.contains("take")||t.contains("look")||t.contains("go to"))}?.let{return it};return null}
  private fun rememberMention(v:Verse){synchronized(mentioned){mentioned.addLast(v);while(mentioned.size>24)mentioned.removeFirst()}}
  private fun normalize(s:String)=s.lowercase().replace("let's","lets").replace(Regex("[^a-z0-9 ]")," ").replace(Regex("\\s+")," ").trim()
- private fun isExplicitNavigation(t:String)=listOf("next verse","previous verse","repeat that","repeat verse","next chapter","previous chapter","go back","continue","jump to verse","take me to verse","go to verse","back to verse","verse one","verse two","verse three","verse four","verse five","verse six","verse seven","verse eight","verse nine").any(t::contains)||Regex("\\b(?:go|jump|take me) (?:back )?(?:to )?verse \\d+\\b").containsMatchIn(t)||Regex("\\bverse (?:one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|thirteen|fourteen|fifteen|sixteen|seventeen|eighteen|nineteen|twenty|thirty|forty|fifty|sixty|seventy|eighty|ninety)\\b").containsMatchIn(t)
+ private fun isExplicitNavigation(t:String)=listOf("next","previous","next verse","previous verse","repeat that","repeat verse","next chapter","previous chapter","go back","continue","jump to verse","take me to verse","go to verse","back to verse","verse one","verse two","verse three","verse four","verse five","verse six","verse seven","verse eight","verse nine").any(t::contains)||Regex("\\b(?:go|jump|take me) (?:back )?(?:to )?verse \\d+\\b").containsMatchIn(t)||Regex("\\bverse (?:one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|thirteen|fourteen|fifteen|sixteen|seventeen|eighteen|nineteen|twenty|thirty|forty|fifty|sixty|seventy|eighty|ninety)\\b").containsMatchIn(t)
  private fun isListLanguage(t:String)=listOf("you can find this in","you can find these in","write down","note these scriptures","these scriptures","our texts are","references are","we will read","we'll read").any(t::contains)
  private fun isDirectRead(t:String)=listOf("lets read","let us read","turn to","open to","go to","give me","put up","show us","read from","we are reading").any(t::contains)
  private fun isMentionOnly(t:String)=listOf("people quote","not where","not going to","mentions","mentioned","for example","such as").any(t::contains)
