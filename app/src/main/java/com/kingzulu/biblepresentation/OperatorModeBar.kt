@@ -24,7 +24,7 @@ fun OperatorModeBar() {
         shape = RoundedCornerShape(20.dp)
     ) {
         Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            Text("OPERATOR MODES", fontSize = 11.sp, fontWeight = FontWeight.Black, color = Color(0xFFAAAAB2))
+            Text("OPERATOR MODES", fontSize = 11.sp, fontWeight = FontWeight.Black, color = Color(0xFF9AB7BE))
 
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 if (routeAll) Button({ routeAll = true; OperatorPreferences.setRouteAllOutputs(context, true) }, Modifier.weight(1f)) { Text("ALL SCREENS") }
@@ -49,7 +49,7 @@ fun OperatorModeBar() {
                 if (autoLive) "Only decisive Scripture recognition may replace Live; uncertain matches still wait."
                 else "AI prepares Scripture without replacing the current Live slide.",
                 fontSize = 11.sp,
-                color = Color(0xFFAAAAB2)
+                color = Color(0xFF9AB7BE)
             )
         }
     }
