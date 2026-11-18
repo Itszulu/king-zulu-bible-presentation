@@ -18,7 +18,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
-private val DS=Color(0xFF151518);private val DM=Color(0xFFAAAAB2);private val DG=Color(0xFF66D19E)
+private val DS=Color(0xFF10262C);private val DM=Color(0xFF9AB7BE);private val DG=Color(0xFF66D19E)
 
 @Composable private fun RouteSelector(transport:OutputTransport,onChanged:()->Unit={}){var selected by remember{mutableStateOf(OutputRouting.busFor(transport))};Column(verticalArrangement=Arrangement.spacedBy(6.dp)){Text("ROUTE TO",fontSize=11.sp,color=DM,fontWeight=FontWeight.Bold);Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(8.dp)){PresentationBus.entries.forEach{bus->if(selected==bus)Button({OutputRouting.assign(transport,bus);selected=bus;onChanged()},Modifier.weight(1f)){Text(if(bus==PresentationBus.MAIN)"MAIN" else "FOLDBACK")}else OutlinedButton({OutputRouting.assign(transport,bus);selected=bus;onChanged()},Modifier.weight(1f)){Text(if(bus==PresentationBus.MAIN)"MAIN" else "FOLDBACK")}}};Text(if(selected==PresentationBus.MAIN)"Congregation / audience feed" else "Stage foldback · current + next scripture · clock/timer/alerts",fontSize=11.sp,color=DM)}}
 
