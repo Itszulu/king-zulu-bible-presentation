@@ -1,6 +1,6 @@
-# King Zulu Bible & Church Presentation
+# DOXA
 
-King Zulu is a mobile-first Bible and church presentation project. The current Beta 1 source milestone includes fast Scripture reference parsing, Preview → Live presentation flow, lyrics, local themes, service plans, timers, display discovery foundations, and smart-TV routing groundwork.
+DOXA is a mobile-first Bible and church presentation app. The current Beta 1 source milestone includes fast Scripture reference parsing, Preview → Live presentation flow, lyrics, local themes, service plans, timers, display discovery foundations, and smart-TV routing groundwork.
 
 ## Beta build
 
