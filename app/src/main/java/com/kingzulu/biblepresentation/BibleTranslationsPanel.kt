@@ -44,7 +44,7 @@ fun BibleTranslationsPanel(onDone: () -> Unit) {
     }
 
     Text("Bibles", fontSize = 30.sp, fontWeight = FontWeight.Black)
-    Text("Choose an offline Bible or add one from your device.", color = Color(0xFFAAAAB2))
+    Text("Choose an offline Bible or add one from your device.", color = Color(0xFF9AB7BE))
 
     Surface(Modifier.fillMaxWidth(), color = MaterialTheme.colorScheme.surface, shape = RoundedCornerShape(22.dp)) {
         Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -55,7 +55,7 @@ fun BibleTranslationsPanel(onDone: () -> Unit) {
                         Text(bible.name, fontSize = 13.sp)
                     }
                     if (selected.equals(bible.abbreviation, true)) {
-                        Text("ACTIVE", color = Color(0xFF9B8AFF), fontWeight = FontWeight.Black)
+                        Text("ACTIVE", color = Color(0xFF42C6C9), fontWeight = FontWeight.Black)
                     } else {
                         OutlinedButton(onClick = {
                             if (OfflineBibleRepository.selectTranslation(bible.abbreviation)) {
@@ -74,7 +74,7 @@ fun BibleTranslationsPanel(onDone: () -> Unit) {
         modifier = Modifier.fillMaxWidth()
     ) { Text("ADD BIBLE FROM DEVICE") }
 
-    Text("Supported imports: King Zulu JSON and Bible XML. King Zulu checks the file before installing it; unsupported files are rejected safely.", fontSize = 12.sp, color = Color(0xFFAAAAB2))
-    if (message.isNotBlank()) Text(message, color = Color(0xFF9B8AFF))
+    Text("Supported imports: DOXA JSON and Bible XML. DOXA checks the file before installing it; unsupported files are rejected safely.", fontSize = 12.sp, color = Color(0xFF9AB7BE))
+    if (message.isNotBlank()) Text(message, color = Color(0xFF42C6C9))
     OutlinedButton(onClick = onDone, modifier = Modifier.fillMaxWidth()) { Text("BACK TO BIBLE") }
 }
