@@ -16,7 +16,7 @@ class DisplayLauncherActivity : ComponentActivity() {
         setContent {
             MaterialTheme {
                 Scaffold(
-                    topBar = { TopAppBar(title = { Text("KING ZULU · CONNECT DISPLAY") }) }
+                    topBar = { TopAppBar(title = { Text("DOXA · CONNECT DISPLAY") }) }
                 ) { pad ->
                     Column(Modifier.padding(pad).padding(18.dp).fillMaxSize(), verticalArrangement = Arrangement.spacedBy(14.dp)) {
                         DisplaysPanel()
