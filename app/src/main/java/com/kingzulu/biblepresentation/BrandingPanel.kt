@@ -26,16 +26,16 @@ fun BrandingPanel(onPreview: (PresentationSlide) -> Unit) {
         }
     }
     Text("Branding", fontSize = 32.sp, fontWeight = FontWeight.Black)
-    Text("Make the congregation screen belong to your church, not to the app.", color = Color(0xFFAAAAB2))
-    Surface(Modifier.fillMaxWidth(), color = Color(0xFF151518), shape = RoundedCornerShape(22.dp)) {
+    Text("Make the congregation screen belong to your church, not to the app.", color = Color(0xFF9AB7BE))
+    Surface(Modifier.fillMaxWidth(), color = Color(0xFF10262C), shape = RoundedCornerShape(22.dp)) {
         Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            Text("CHURCH LOGO", color = Color(0xFF9B8AFF), fontWeight = FontWeight.Black, fontSize = 11.sp)
+            Text("CHURCH LOGO", color = Color(0xFF42C6C9), fontWeight = FontWeight.Black, fontSize = 11.sp)
             PresentationCanvas(BrandingStore.slide(context), null, Modifier.fillMaxWidth())
-            Text(if (branding == null) "King Zulu is the fallback until you add your own branding." else "Custom ${branding!!.mediaType} logo is active.", color = Color(0xFFAAAAB2), fontSize = 12.sp)
+            Text(if (branding == null) "DOXA is the fallback until you add your own branding." else "Custom ${branding!!.mediaType} logo is active.", color = Color(0xFF9AB7BE), fontSize = 12.sp)
             Button({ picker.launch("*/*") }, Modifier.fillMaxWidth()) { Text(if (branding == null) "CHOOSE IMAGE OR VIDEO" else "REPLACE IMAGE OR VIDEO") }
             OutlinedButton({ onPreview(BrandingStore.slide(context)) }, Modifier.fillMaxWidth()) { Text("SEND LOGO TO PREVIEW") }
             if (branding != null) TextButton({ BrandingStore.clear(context); branding = null; message = "Custom logo removed." }) { Text("Remove custom logo") }
-            if (message.isNotBlank()) Text(message, color = Color(0xFFAAAAB2), fontSize = 11.sp)
+            if (message.isNotBlank()) Text(message, color = Color(0xFF9AB7BE), fontSize = 11.sp)
             Text("Logo selection never changes Live by itself. Preview it first, then use GO LIVE.", color = Color(0xFF66D19E), fontSize = 11.sp)
         }
     }
