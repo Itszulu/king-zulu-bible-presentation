@@ -52,7 +52,7 @@ object BrandingStore {
 
     fun slide(context: Context): PresentationSlide {
         val brand = load(context)
-        return if (brand == null) PresentationSlide(text = "KING ZULU", kind = "logo")
+        return if (brand == null) PresentationSlide(text = "DOXA", kind = "logo")
         else PresentationSlide(text = "", kind = "logo", mediaPath = brand.path, mediaType = brand.mediaType)
     }
 }
