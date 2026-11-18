@@ -23,7 +23,7 @@ private fun autoTextSize(text:String):Int = when { text.length<=90->32;text.leng
 @Composable fun PresentationCanvas(slide:PresentationSlide?,theme:BackgroundTheme?,modifier:Modifier=Modifier,textSize:Int?=null,autoFit:Boolean=true){
  Box(modifier.aspectRatio(16f/9f).background(Color.Black),contentAlignment=Alignment.Center){
   theme?.localPath?.let{AsyncImage(File(it),null,Modifier.fillMaxSize(),contentScale=ContentScale.Crop);Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha=theme.overlay)))}
-  if(slide==null) Text("KING ZULU",color=Color.Gray)
+  if(slide==null) Text("DOXA",color=Color.Gray)
   else if(slide.kind=="logo"&&slide.mediaPath.isNotBlank()){
    if(slide.mediaType=="video") key(slide.mediaPath){AndroidView(factory={ctx->VideoView(ctx).apply{setVideoURI(Uri.fromFile(File(slide.mediaPath)));setOnPreparedListener{p->p.isLooping=true;p.setVolume(0f,0f);start()}}},modifier=Modifier.fillMaxSize(),update={v->if(!v.isPlaying)v.start()})}
    else AsyncImage(File(slide.mediaPath),"Church logo",Modifier.fillMaxSize().padding(28.dp),contentScale=ContentScale.Fit)
