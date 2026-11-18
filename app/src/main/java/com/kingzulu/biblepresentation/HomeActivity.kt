@@ -18,11 +18,11 @@ class HomeActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         OfflineBibleRepository.initialize(this)
         setContent {
-            MaterialTheme(colorScheme = darkColorScheme(primary=Color(0xFF7B61FF),background=Color(0xFF0A0A0B),surface=Color(0xFF151518))) {
+            MaterialTheme(colorScheme = darkColorScheme(primary=Color(0xFF087F8C),background=Color(0xFF07171B),surface=Color(0xFF10262C))) {
                 val bridge=remember{WiredDisplayBridge(this@HomeActivity)}
                 var page by remember{mutableStateOf("Home")}
                 DisposableEffect(bridge){onDispose{bridge.dismiss()}}
-                Scaffold(containerColor=Color(0xFF0A0A0B)){pad->
+                Scaffold(containerColor=Color(0xFF07171B)){pad->
                     Column(Modifier.padding(pad).fillMaxSize().verticalScroll(rememberScrollState()).padding(18.dp),verticalArrangement=Arrangement.spacedBy(14.dp)){
                         when(page){
                             "Branding"->BrandingPanel{page="Home"}
